@@ -50,10 +50,11 @@ pub fn make_base_stability<MI, TIK, TIC>(
         SizedDomain::new(MapDomain { key_domain: AllDomain::new(), value_domain: AllDomain::new() }, n),
         SizedDomain::new(MapDomain { key_domain: AllDomain::new(), value_domain: AllDomain::new() }, n),
         Function::new_fallible(move |data: &HashMap<TIK, TIC>| {
-            data.iter()
+            data.into_iter()
+                .filter(|(_k, c_in)| !c_in.is_zero())
                 .map(|(k, c_in)| {
-                    // cast the value to MI::Distance (output count)
-                    let c_out = num_cast!(c_in.clone(); MI::Distance)?;
+                    // cast the value to TOC (output count)
+                    let c_out = TOC::from(c_in.clone()).ok_or_else(|| err!(FailedCast))?;
                     // noise output count
                     Ok((k.clone(), MI::noise(c_out, scale, false)?))
                 })
@@ -62,9 +63,9 @@ pub fn make_base_stability<MI, TIK, TIC>(
                 // fail the whole computation if any cast or noise addition failed
                 .collect()
         }),
-        MI::default(),
-        SmoothedMaxDivergence::default(),
-        PrivacyRelation::new_fallible(move |&d_in: &MI::Distance, &(eps, del): &(MI::Distance, MI::Distance)|{
+        MI::new(),
+        SmoothedMaxDivergence::new(),
+        PrivacyRelation::new_fallible(move |&d_in: &TOC, &(eps, del): &(TOC, TOC)|{
             // let _eps: f64 = NumCast::from(eps).unwrap_test();
             // let _del: f64 = NumCast::from(del).unwrap_test();
             // println!("eps, del: {:?}, {:?}", _eps, _del);
@@ -82,7 +83,7 @@ pub fn make_base_stability<MI, TIK, TIC>(
                 return fallible!(FailedRelation, "cause: delta <= 0")
             }
             if del >= _n.recip() {
-                return fallible!(RelationDebug, "cause: del >= n.ln()");
+                return fallible!(RelationDebug, "cause: del >= 1 / n");
             }
             if scale < ideal_scale {
                 return fallible!(RelationDebug, "cause: scale < d_in / (epsilon * n)")
