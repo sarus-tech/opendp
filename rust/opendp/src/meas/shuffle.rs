@@ -25,7 +25,7 @@ pub enum ShuffleBound {
     Empirical, Theoretical
 }
 
-fn make_shuffle_amplification<MI>(
+pub fn make_shuffle_amplification<MI>(
     step_epsilon: f64, step_delta: f64, n: u64, bound: ShuffleBound
 ) -> Fallible<Measurement<AllDomain<f64>, AllDomain<f64>, MI, SmoothedMaxDivergence<f64>>>
     where MI: DatasetMetric<Distance=u32> + ShuffleAmplificationConstant {
