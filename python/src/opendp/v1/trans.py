@@ -960,5 +960,137 @@ def make_bounded_variance(
     function = lib.opendp_trans__make_bounded_variance
     function.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint, ctypes.c_char_p, ctypes.c_char_p]
     function.restype = FfiResult
-    
+
     return c_to_py(unwrap(function(lower, upper, n, ddof, MI, T), Transformation))
+
+
+def make_count(
+    MI: DatasetMetric,
+    MO: SensitivityMetric,
+    TI: RuntimeTypeDescriptor
+) -> Transformation:
+    """Make a Transformation that computes a count of the number of records in data.
+    
+    :param MI: input dataset metric
+    :type MI: DatasetMetric
+    :param MO: output sensitivity metric
+    :type MO: SensitivityMetric
+    :param TI: atomic type of input data. Input data is expected to be of the form Vec<TI>.
+    :type TI: RuntimeTypeDescriptor
+    :return: A count step.
+    :rtype: Transformation
+    :raises AssertionError: if an argument's type differs from the expected type
+    :raises UnknownTypeError: if a type-argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # Standardize type arguments.
+    MI = RuntimeType.parse(type_name=MI)
+    MO = RuntimeType.parse(type_name=MO)
+    TI = RuntimeType.parse(type_name=TI)
+    
+    # Convert arguments to c types.
+    MI = py_to_c(MI, c_type=ctypes.c_char_p)
+    MO = py_to_c(MO, c_type=ctypes.c_char_p)
+    TI = py_to_c(TI, c_type=ctypes.c_char_p)
+    
+    # Call library function.
+    function = lib.opendp_trans__make_count
+    function.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+    function.restype = FfiResult
+    
+    return c_to_py(unwrap(function(MI, MO, TI), Transformation))
+
+
+def make_count_by(
+    n: int,
+    MI: DatasetMetric,
+    MO: SensitivityMetric,
+    TI: RuntimeTypeDescriptor,
+    TO: RuntimeTypeDescriptor = int
+) -> Transformation:
+    """Make a Transformation that computes the count of each unique value in data. 
+    This assumes that the category set is unknown. 
+    Use make_base_stability to release this query.
+    
+    :param n: Number of records in input data.
+    :type n: int
+    :param MI: input dataset metric
+    :type MI: DatasetMetric
+    :param MO: output sensitivity metric
+    :type MO: SensitivityMetric
+    :param TI: categorical/hashable input data type. Input data must be Vec<TI>.
+    :type TI: RuntimeTypeDescriptor
+    :param TO: express counts in terms of this integral type
+    :type TO: RuntimeTypeDescriptor
+    :return: The carrier type is HashMap<TI, TO>- the counts for each unique data input.
+    :rtype: Transformation
+    :raises AssertionError: if an argument's type differs from the expected type
+    :raises UnknownTypeError: if a type-argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # Standardize type arguments.
+    MI = RuntimeType.parse(type_name=MI)
+    MO = RuntimeType.parse(type_name=MO)
+    TI = RuntimeType.parse(type_name=TI)
+    TO = RuntimeType.parse(type_name=TO)
+    
+    # Convert arguments to c types.
+    n = py_to_c(n, c_type=ctypes.c_uint)
+    MI = py_to_c(MI, c_type=ctypes.c_char_p)
+    MO = py_to_c(MO, c_type=ctypes.c_char_p)
+    TI = py_to_c(TI, c_type=ctypes.c_char_p)
+    TO = py_to_c(TO, c_type=ctypes.c_char_p)
+    
+    # Call library function.
+    function = lib.opendp_trans__make_count_by
+    function.argtypes = [ctypes.c_uint, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+    function.restype = FfiResult
+    
+    return c_to_py(unwrap(function(n, MI, MO, TI, TO), Transformation))
+
+
+def make_count_by_categories(
+    categories: Any,
+    MI: DatasetMetric,
+    MO: SensitivityMetric,
+    TI: RuntimeTypeDescriptor = None,
+    TO: RuntimeTypeDescriptor = int
+) -> Transformation:
+    """Make a Transformation that computes the number of times each category appears in the data. 
+    This assumes that the category set is known.
+    
+    :param categories: The set of categories to compute counts for.
+    :type categories: Any
+    :param MI: input dataset metric
+    :type MI: DatasetMetric
+    :param MO: output sensitivity metric
+    :type MO: SensitivityMetric
+    :param TI: categorical/hashable input data type. Input data must be Vec<TI>.
+    :type TI: RuntimeTypeDescriptor
+    :param TO: express counts in terms of this integral type
+    :type TO: RuntimeTypeDescriptor
+    :return: A count_by_categories step.
+    :rtype: Transformation
+    :raises AssertionError: if an argument's type differs from the expected type
+    :raises UnknownTypeError: if a type-argument fails to parse
+    :raises OpenDPException: packaged error from the core OpenDP library
+    """
+    # Standardize type arguments.
+    MI = RuntimeType.parse(type_name=MI)
+    MO = RuntimeType.parse(type_name=MO)
+    TI = RuntimeType.parse_or_infer(type_name=TI, public_example=next(iter(categories), None))
+    TO = RuntimeType.parse(type_name=TO)
+    
+    # Convert arguments to c types.
+    categories = py_to_c(categories, c_type=AnyObjectPtr, type_name=RuntimeType(origin='Vec', args=[TI]))
+    MI = py_to_c(MI, c_type=ctypes.c_char_p)
+    MO = py_to_c(MO, c_type=ctypes.c_char_p)
+    TI = py_to_c(TI, c_type=ctypes.c_char_p)
+    TO = py_to_c(TO, c_type=ctypes.c_char_p)
+    
+    # Call library function.
+    function = lib.opendp_trans__make_count_by_categories
+    function.argtypes = [AnyObjectPtr, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+    function.restype = FfiResult
+    
+    return c_to_py(unwrap(function(categories, MI, MO, TI, TO), Transformation))
