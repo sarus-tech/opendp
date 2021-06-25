@@ -13,9 +13,8 @@ from typing import List, Optional, Union, Dict
 import numpy as np
 
 import torch
-from torch.linalg import norm
 import torch.nn as nn
-from opendp.v1.typing import L1Sensitivity, L2Sensitivity, RuntimeType, DatasetMetric, HammingDistance
+from opendp.v1.typing import L1Distance, L2Distance, RuntimeType, DatasetMetric, HammingDistance
 from torch.nn.parameter import Parameter
 
 import opendp.v1.trans as trans
@@ -341,14 +340,12 @@ class PrivacyOdometer(object):
         return self._make_base_mechanism_vec(mechanism_name, scale)
 
     def _check_noise_scale(self, reduction, clipping_norm, n, mechanism_name, scale):
-
-        sensitivity_space = {'laplace': L1Sensitivity[float], 'gaussian': L2Sensitivity[float]}[mechanism_name]
         if reduction == 'mean':
             aggregator = trans.make_bounded_mean(
-                -clipping_norm, clipping_norm, n, MI=self.MI, MO=sensitivity_space)
+                -clipping_norm, clipping_norm, n, MI=self.MI)
         elif reduction == 'sum':
             aggregator = trans.make_bounded_sum(
-                -clipping_norm, clipping_norm, MI=self.MI, MO=sensitivity_space)
+                -clipping_norm, clipping_norm, MI=self.MI)
         else:
             raise ValueError(f'unrecognized reduction: {reduction}. Must be "mean" or "sum"')
 
@@ -367,9 +364,9 @@ class PrivacyOdometer(object):
     @staticmethod
     def _make_base_mechanism_vec(mechanism_name, scale):
         if mechanism_name == 'laplace':
-            return meas.make_base_laplace_vec(scale)
+            return meas.make_base_vector_laplace(scale)
         if mechanism_name == 'gaussian':
-            return meas.make_base_gaussian_vec(scale)
+            return meas.make_base_vector_gaussian(scale)
 
     @staticmethod
     def _get_batch_size(module_):
