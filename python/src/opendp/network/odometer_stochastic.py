@@ -145,7 +145,7 @@ class StochasticPrivacyOdometer(object):
         if device != 'cpu':
             grad = grad.to('cpu')
 
-        grad = measurement(grad).reshape(grad.shape)
+        grad = measurement(grad.flatten()).reshape(grad.shape)
 
         if device != 'cpu':
             grad = grad.to(device)

@@ -478,10 +478,11 @@ impl<T: CastInternalReal + SampleRademacher> SampleLaplace for T {
 impl<T: num::Float + rand::distributions::uniform::SampleUniform + SampleRademacher> SampleLaplace for T {
     fn sample_laplace(shift: Self, scale: Self, _constant_time: bool) -> Fallible<Self> {
         let mut rng = rand::thread_rng();
-        let _1_ = T::from(1.0).unwrap();
-        let _2_ = T::from(2.0).unwrap();
-        let u: T = rng.gen_range(T::from(-0.5).unwrap(), T::from(0.5).unwrap());
-        Ok(shift - u.signum() * (_1_ - _2_ * u.abs()).ln() * scale)
+        let mut u: T = T::zero();
+        while u.abs().is_zero() {
+            u = rng.gen_range(T::from(-1.).unwrap(), T::from(1.).unwrap())
+        }
+        Ok(shift + u.signum() * u.abs().ln() * scale)
     }
 }
 

@@ -6,10 +6,6 @@ use crate::core::{Measurement, Function, PrivacyRelation, DatasetMetric};
 use std::marker::PhantomData;
 
 
-pub struct ShuffleAmplification<MI> {
-    in_distance: PhantomData<MI>
-}
-
 pub trait ShuffleAmplificationConstant {
     fn get_stability_constant() -> f64;
 }
@@ -183,12 +179,11 @@ fn binomial_cdf(x: u64, n: u64, p: f64) -> f64 {
 mod compositor_tests {
     use super::*;
     use crate::dist::HammingDistance;
-    use crate::meas::MakeMeasurement4;
     use crate::error::ExplainUnwrap;
 
     #[test]
     fn theoretical() {
-        let amplifier = ShuffleAmplification::<HammingDistance>::make(
+        let amplifier = make_shuffle_amplification::<HammingDistance>(
             1.0, 1e-8, 1000, ShuffleBound::Theoretical).unwrap_test();
         let check = amplifier.privacy_relation.eval(&1, &(10., 1e-6)).unwrap_test();
         println!("theoretical {:?}", check);
@@ -196,7 +191,7 @@ mod compositor_tests {
 
     #[test]
     fn empirical() {
-        let amplifier = ShuffleAmplification::<HammingDistance>::make(
+        let amplifier = make_shuffle_amplification::<HammingDistance>(
             1.0, 1e-8, 1000, ShuffleBound::Empirical).unwrap_test();
         let check = amplifier.privacy_relation.eval(&1, &(10., 1e-6)).unwrap_test();
         println!("empirical {:?}", check);

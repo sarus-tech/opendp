@@ -87,7 +87,7 @@ class ManualPrivacyOdometer(object):
         if device != 'cpu':
             grad = grad.to('cpu')
 
-        grad = self.measurement(grad).reshape(grad.shape)
+        grad = self.measurement(grad.flatten()).reshape(grad.shape)
 
         if device != 'cpu':
             grad = grad.to(device)
