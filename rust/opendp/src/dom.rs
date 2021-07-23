@@ -38,6 +38,21 @@ impl<T> Domain for AllDomain<T> {
     fn member(&self, _val: &Self::Carrier) -> Fallible<bool> { Ok(true) }
 }
 
+// /// A Domain that contains specific members of the carrier type.
+// #[derive(Clone, PartialEq, Eq)]
+// pub struct CategoricalDomain<T: Eq + Hash> {
+//     categories: HashSet<T>,
+// }
+// impl<T: Eq + Hash> CategoricalDomain<T> {
+//     pub fn new(categories: HashSet<T>) -> Fallible<Self> {
+//         if categories.is_empty() {return fallible!(MakeDomain, "category set must be nonempty")}
+//         Ok(CategoricalDomain { categories })
+//     }
+// }
+// impl<T: Clone + Eq + Hash> Domain for CategoricalDomain<T> {
+//     type Carrier = T;
+//     fn member(&self, val: &Self::Carrier) -> Fallible<bool> { Ok(self.categories.contains(val)) }
+// }
 
 /// A Domain that carries an underlying Domain in a Box.
 #[derive(Clone, PartialEq)]
@@ -95,14 +110,14 @@ impl<T: PartialOrd> IntervalDomain<T> {
         }
         if let Some((v_lower, v_upper)) = get(&lower).zip(get(&upper)) {
             if v_lower > v_upper {
-                return fallible!(MakeTransformation, "lower bound may not be greater than upper bound")
+                return fallible!(MakeDomain, "lower bound may not be greater than upper bound")
             }
             if v_lower == v_upper {
                 match (&lower, &upper) {
                     (Bound::Included(_l), Bound::Excluded(_u)) =>
-                        return fallible!(MakeTransformation, "upper bound excludes inclusive lower bound"),
+                        return fallible!(MakeDomain, "upper bound excludes inclusive lower bound"),
                     (Bound::Excluded(_l), Bound::Included(_u)) =>
-                        return fallible!(MakeTransformation, "lower bound excludes inclusive upper bound"),
+                        return fallible!(MakeDomain, "lower bound excludes inclusive upper bound"),
                     _ => ()
                 }
             }
