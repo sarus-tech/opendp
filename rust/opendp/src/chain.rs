@@ -311,8 +311,8 @@ mod tests {
     #[test]
     fn test_make_basic_composition_multi() -> Fallible<()> {
         let measurements = vec![
-            make_base_laplace::<AllDomain<_>>(0.)?,
-            make_base_laplace(0.)?
+            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(0.)?,
+            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(0.)?
         ];
         let composition = make_basic_composition_multi(&measurements.iter().collect())?;
         let arg = 99.;
@@ -322,8 +322,8 @@ mod tests {
         assert_eq!(ret, vec![99., 99.]);
 
         let measurements = vec![
-            make_base_laplace::<AllDomain<_>>(1.)?,
-            make_base_laplace(1.)?
+            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(1.)?,
+            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(1.)?
         ];
         let composition = make_basic_composition_multi(&measurements.iter().collect())?;
         // runs once because it sits on a power of 2

@@ -110,7 +110,7 @@ mod tests {
         let _ret = measurement.function.eval(&arg)?;
         // println!("stability eval: {:?}", ret);
 
-        assert!(measurement.privacy_relation.eval(&1., &(2.3, 1e-5))?);
+        assert!(measurement.privacy_relation.eval(&1., &EpsilonDelta { epsilon: 2.3, delta: 1e-5 })?);
         Ok(())
     }
 }

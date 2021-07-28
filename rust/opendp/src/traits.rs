@@ -81,7 +81,6 @@ impl<'a, T> FallibleSub<&'a EpsilonDelta<T>> for EpsilonDelta<T> where T: Sub<&'
     }
 }
 
-
 pub trait Midpoint: Sized {
     fn midpoint(self, rhs: Self) -> Self;
 }

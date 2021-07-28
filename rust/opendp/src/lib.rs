@@ -39,11 +39,11 @@
 //! use opendp::meas;
 //! use opendp::trans;
 //! use opendp::trans::{manipulation, sum, make_split_lines, make_cast_default, make_clamp, make_bounded_sum};
-//! use opendp::dist::{SubstituteDistance, L1Distance};
+//! use opendp::dist::{MaxDivergence, SubstituteDistance, L1Distance};
 //! use opendp::error::*;
 //! use opendp::chain::{make_chain_tt, make_chain_mt};
 //! use opendp::meas::make_base_laplace;
-//! use opendp::dom::VectorDomain;
+//! use opendp::dom::{AllDomain, VectorDomain};
 //!
 //! pub fn example() -> Fallible<()> {
 //!     let data = "56\n15\n97\n56\n6\n17\n2\n19\n16\n50".to_owned();
@@ -59,7 +59,7 @@
 //!     // Construct a Measurement to calculate a noisy sum.
 //!     let clamp = make_clamp::<VectorDomain<_>, _>(bounds.0, bounds.1)?;
 //!     let bounded_sum = make_bounded_sum(bounds.0, bounds.1)?;
-//!     let laplace = make_base_laplace(sigma)?;
+//!     let laplace = make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(sigma)?;
 //!     let intermediate = make_chain_tt(&bounded_sum, &clamp, None)?;
 //!     let noisy_sum = make_chain_mt(&laplace, &intermediate, None)?;
 //!

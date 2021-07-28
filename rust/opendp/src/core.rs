@@ -59,6 +59,7 @@ impl<DI: Domain, DO: Domain> Function<DI, DO> {
     pub fn eval(&self, arg: &DI::Carrier) -> Fallible<DO::Carrier> {
         (self.function)(arg)
     }
+
 }
 
 impl<DI: 'static + Domain, DO: 'static + Domain> Function<DI, DO> {
@@ -134,26 +135,28 @@ pub struct PrivacyRelation<MI: Metric, MO: Measure> {
     pub backward_map: Option<Rc<dyn Fn(&MO::Distance) -> Fallible<Box<MI::Distance>>>>,
 }
 
+
 impl<MI: Metric, MO: Measure> PrivacyRelation<MI, MO> {
     pub fn new(relation: impl Fn(&MI::Distance, &MO::Distance) -> bool + 'static) -> Self {
+        let privacy_relation = Rc::new(move |d_in: &MI::Distance, d_out: &MO::Distance| Ok(relation(d_in, d_out)));
         PrivacyRelation {
-            relation: Rc::new(move |d_in: &MI::Distance, d_out: &MO::Distance| Ok(relation(d_in, d_out))),
-            backward_map: None,
+            relation: privacy_relation,
+            backward_map: None
         }
     }
     pub fn new_fallible(relation: impl Fn(&MI::Distance, &MO::Distance) -> Fallible<bool> + 'static) -> Self {
         PrivacyRelation {
             relation: Rc::new(relation),
-            backward_map: None,
+            backward_map: None
         }
     }
     pub fn new_all(
         relation: impl Fn(&MI::Distance, &MO::Distance) -> Fallible<bool> + 'static,
-        backward_map: Option<impl Fn(&MO::Distance) -> Fallible<Box<MI::Distance>> + 'static>,
+        backward_map: Option<impl Fn(&MO::Distance) -> Fallible<Box<MI::Distance>> + 'static>
     ) -> Self {
         PrivacyRelation {
             relation: Rc::new(relation),
-            backward_map: backward_map.map(|h| Rc::new(h) as Rc<_>),
+            backward_map: backward_map.map(|h| Rc::new(h) as Rc<_>)
         }
     }
     pub fn new_from_constant(c: MO::Distance) -> Self where
@@ -163,12 +166,14 @@ impl<MI: Metric, MO: Measure> PrivacyRelation<MI, MO> {
             enclose!(c, move |d_in: &MI::Distance, d_out: &MO::Distance|
                 Ok(d_out.clone() >= MO::Distance::distance_cast(d_in.clone())? * c.clone())),
             Some(enclose!(c, move |d_out: &MO::Distance|
-                Ok(Box::new(MI::Distance::distance_cast(d_out.clone() / c.clone())?)))))
+                Ok(Box::new(MI::Distance::distance_cast(d_out.clone() / c.clone())?))))
+            )
     }
     pub fn eval(&self, input_distance: &MI::Distance, output_distance: &MO::Distance) -> Fallible<bool> {
         (self.relation)(input_distance, output_distance)
     }
 }
+
 
 fn chain_option_maps<QI, QX, QO>(
     map1: &Option<Rc<dyn Fn(&QX) -> Fallible<Box<QO>>>>,
@@ -232,7 +237,8 @@ impl<MI: 'static + Metric, MO: 'static + Measure> PrivacyRelation<MI, MO> {
                 let d_mid = h(d_in, d_out)?;
                 Ok(relation0(d_in, &d_mid)? && relation1(&d_mid, d_out)?)
             }),
-            chain_option_maps(backward_map0, backward_map1))
+            chain_option_maps(backward_map0, backward_map1)
+        )
     }
 }
 

@@ -37,13 +37,13 @@ impl<Q: Clone> Measure for SmoothedMaxDivergence<Q> {
     type Distance = EpsilonDelta<Q>;
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct FSmoothedMaxDivergence<Q>(PhantomData<Q>);
 impl<Q> Default for FSmoothedMaxDivergence<Q> {
     fn default() -> Self { FSmoothedMaxDivergence(PhantomData) }
 }
 
-impl<Q> PartialEq for SmoothedMaxDivergence<Q> {
+impl<Q> PartialEq for FSmoothedMaxDivergence<Q> {
     fn eq(&self, _other: &Self) -> bool { true }
 }
 
