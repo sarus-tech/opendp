@@ -3,9 +3,13 @@
 use std::marker::PhantomData;
 
 use crate::core::{DatasetMetric, Measure, Metric, SensitivityMetric};
+<<<<<<< HEAD
 use num::Zero;
 use std::ops::Add;
 use std::cmp::Ordering;
+=======
+use rug::Float;
+>>>>>>> 42eb09f6146c77df256bf07d75418e14ffba2725
 
 /// Measures
 #[derive(Clone)]

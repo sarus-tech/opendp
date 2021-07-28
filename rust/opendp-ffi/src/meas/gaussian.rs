@@ -11,7 +11,11 @@ use crate::any::AnyMeasurement;
 use crate::core::{FfiResult, IntoAnyMeasurementFfiResultExt};
 use crate::util::Type;
 use opendp::dom::{AllDomain, VectorDomain};
+<<<<<<< HEAD
 use opendp::chain::BasicCompositionDistance;
+=======
+use opendp::dist::{SmoothedMaxDivergence};
+>>>>>>> 42eb09f6146c77df256bf07d75418e14ffba2725
 
 #[no_mangle]
 pub extern "C" fn opendp_meas__make_base_gaussian(
@@ -22,7 +26,7 @@ pub extern "C" fn opendp_meas__make_base_gaussian(
         D: 'static + GaussianDomain,
         D::Atom: 'static + Clone + SampleGaussian + Float + BasicCompositionDistance {
         let scale = *try_as_ref!(scale as *const D::Atom);
-        make_base_gaussian::<D>(scale).into_any()
+        make_base_gaussian::<D, SmoothedMaxDivergence<D::Atom>>(scale).into_any()
     }
     let D = try_!(Type::try_from(D));
     dispatch!(monomorphize, [
