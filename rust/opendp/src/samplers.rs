@@ -12,6 +12,8 @@ use crate::error::Fallible;
 use statrs::function::erf;
 #[cfg(any(not(feature="use-mpfr"), not(feature="use-openssl")))]
 use rand::Rng;
+use rand::{RngCore, Error, Rng};
+use rand::distributions::uniform::SampleUniform;
 
 #[cfg(feature="use-openssl")]
 pub fn fill_bytes(buffer: &mut [u8]) -> Fallible<()> {
@@ -29,7 +31,7 @@ pub fn fill_bytes(buffer: &mut [u8]) -> Fallible<()> {
 }
 
 #[cfg(feature="use-mpfr")]
-struct GeneratorOpenSSL;
+pub struct GeneratorOpenSSL;
 
 #[cfg(feature="use-mpfr")]
 impl ThreadRandGen for GeneratorOpenSSL {
@@ -44,9 +46,17 @@ impl ThreadRandGen for GeneratorOpenSSL {
 
 
 // SAMPLERS
-pub trait SampleBernoulli: Sized {
+pub trait SampleStandardBernoulli: Sized {
     fn sample_standard_bernoulli() -> Fallible<Self>;
-
+}
+impl SampleStandardBernoulli for bool {
+    fn sample_standard_bernoulli() -> Fallible<Self> {
+        let mut buffer = [0u8; 1];
+        fill_bytes(&mut buffer)?;
+        Ok(buffer[0] & 1 == 1)
+    }
+}
+pub trait SampleBernoulli<P>: Sized {
     /// Sample a single bit with arbitrary probability of success
     ///
     /// Uses only an unbiased source of coin flips.
@@ -82,15 +92,10 @@ pub trait SampleBernoulli: Sized {
     /// # use opendp::error::ExplainUnwrap;
     /// # n.unwrap_test();
     /// ```
-    fn sample_bernoulli(prob: f64, constant_time: bool) -> Fallible<Self>;
+    fn sample_bernoulli(prob: P, constant_time: bool) -> Fallible<Self>;
 }
 
-impl SampleBernoulli for bool {
-    fn sample_standard_bernoulli() -> Fallible<Self> {
-        let mut buffer = [0u8; 1];
-        fill_bytes(&mut buffer)?;
-        Ok(buffer[0] & 1 == 1)
-    }
+impl SampleBernoulli<f64> for bool {
 
     fn sample_bernoulli(prob: f64, constant_time: bool) -> Fallible<Self> {
 
@@ -126,21 +131,42 @@ impl SampleBernoulli for bool {
     }
 }
 
-pub trait SampleRademacher: Sized {
+
+pub trait SampleStandardRademacher: Sized + Neg<Output=Self> + One {
     fn sample_standard_rademacher() -> Fallible<Self>;
-    fn sample_rademacher(prob: f64, constant_time: bool) -> Fallible<Self>;
 }
-
-impl<T: Neg<Output=T> + One> SampleRademacher for T {
+impl<T: Neg<Output=T> + One> SampleStandardRademacher for T {
     fn sample_standard_rademacher() -> Fallible<Self> {
-        Ok(if bool::sample_standard_bernoulli()? {T::one()} else {T::one().neg()})
-    }
-    fn sample_rademacher(prob: f64, constant_time: bool) -> Fallible<Self> {
-        Ok(if bool::sample_bernoulli(prob, constant_time)? {T::one()} else {T::one().neg()})
+        Ok(if bool::sample_standard_bernoulli()? { T::one() } else { T::one().neg() })
     }
 }
 
-pub trait SampleUniform: Sized {
+// not needed at this point
+// pub trait SampleRademacher<P>: Sized {
+//     fn sample_rademacher(prob: P, constant_time: bool) -> Fallible<Self>;
+// }
+//
+// impl<P, T: Neg<Output=T> + One> SampleRademacher<P> for T
+//     where bool: SampleBernoulli<P> {
+//     fn sample_rademacher(prob: P, constant_time: bool) -> Fallible<Self> {
+//         Ok(if bool::sample_bernoulli(prob, constant_time)? {T::one()} else {T::one().neg()})
+//     }
+// }
+
+pub trait SampleDiscreteUniform: Sized {
+    fn sample_uniform_range(lower: Self, upper: Self) -> Fallible<Self>;
+}
+
+impl<T: SampleUniform + Zero + PartialOrd> SampleDiscreteUniform for T {
+    fn sample_uniform_range(lower: Self, upper: Self) -> Fallible<Self> {
+        if lower > upper {return fallible!(FailedFunction, "lower must not be greater than upper")}
+        let mut rng = GeneratorOpenSSL {};
+        // TODO: rng can fail, but the rust interface forces a panic upon error
+        Ok(rng.gen_range(lower, upper))
+    }
+}
+
+pub trait SampleContinuousUniform: Sized {
 
     /// Returns a random sample from Uniform[0,1).
     ///
@@ -168,7 +194,7 @@ pub trait SampleUniform: Sized {
     /// # Example
     /// ```
     /// // valid draw from Unif[0,1)
-    /// use opendp::samplers::SampleUniform;
+    /// use opendp::samplers::SampleContinuousUniform;
     /// let unif = f64::sample_standard_uniform(false);
     /// # use opendp::error::ExplainUnwrap;
     /// # unif.unwrap_test();
@@ -176,7 +202,7 @@ pub trait SampleUniform: Sized {
     fn sample_standard_uniform(constant_time: bool) -> Fallible<Self>;
 }
 
-impl SampleUniform for f64 {
+impl SampleContinuousUniform for f64 {
     fn sample_standard_uniform(constant_time: bool) -> Fallible<Self> {
 
         // A saturated mantissa with implicit bit is ~2
@@ -198,7 +224,7 @@ impl SampleUniform for f64 {
     }
 }
 
-impl SampleUniform for f32 {
+impl SampleContinuousUniform for f32 {
     fn sample_standard_uniform(constant_time: bool) -> Fallible<Self> {
         f64::sample_standard_uniform(constant_time).map(|v| v as f32)
     }
@@ -384,7 +410,7 @@ impl<T: Clone + SampleGeometric + Sub<Output=T> + Bounded + Zero + One + Partial
 }
 
 
-pub trait SampleLaplace: SampleRademacher + Sized {
+pub trait SampleLaplace: SampleStandardRademacher + Sized {
     fn sample_laplace(shift: Self, scale: Self, constant_time: bool) -> Fallible<Self>;
 }
 
@@ -456,7 +482,7 @@ impl CastInternalReal for f32 {
 }
 
 #[cfg(feature = "use-mpfr")]
-impl<T: CastInternalReal + SampleRademacher> SampleLaplace for T {
+impl<T: CastInternalReal + SampleStandardRademacher> SampleLaplace for T {
     fn sample_laplace(shift: Self, scale: Self, constant_time: bool) -> Fallible<Self> {
         if constant_time {
             return fallible!(FailedFunction, "mpfr samplers do not support constant time execution")
@@ -475,7 +501,7 @@ impl<T: CastInternalReal + SampleRademacher> SampleLaplace for T {
 }
 
 #[cfg(not(feature = "use-mpfr"))]
-impl<T: num::Float + rand::distributions::uniform::SampleUniform + SampleRademacher> SampleLaplace for T {
+impl<T: num::Float + rand::distributions::uniform::SampleUniform + SampleStandardRademacher> SampleLaplace for T {
     fn sample_laplace(shift: Self, scale: Self, _constant_time: bool) -> Fallible<Self> {
         let mut rng = rand::thread_rng();
         let _1_ = T::from(1.0).unwrap();
@@ -521,5 +547,33 @@ impl SampleGaussian for f32 {
     fn sample_gaussian(shift: Self, scale: Self, constant_time: bool) -> Fallible<Self> {
         let uniform_sample = f64::sample_standard_uniform(constant_time)?;
         Ok(shift + scale * std::f32::consts::SQRT_2 * (erf::erfc_inv(2.0 * uniform_sample) as f32))
+    }
+}
+
+impl RngCore for GeneratorOpenSSL {
+    fn next_u32(&mut self) -> u32 {
+        let mut buffer = [0u8; 4];
+        // impossible not to panic here
+        //    cannot ignore errors with .ok(), because the buffer will remain 0
+        fill_bytes(&mut buffer).unwrap();
+        u32::from_ne_bytes(buffer)
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        let mut buffer = [0u8; 8];
+        // impossible not to panic here
+        //    cannot ignore errors with .ok(), because the buffer will remain 0
+        fill_bytes(&mut buffer).unwrap();
+        u64::from_ne_bytes(buffer)
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        use openssl::rand::rand_bytes;
+        rand_bytes(dest).unwrap()
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+        use openssl::rand::rand_bytes;
+        rand_bytes(dest).map_err(|e| Error::new(e))
     }
 }

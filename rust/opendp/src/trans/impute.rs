@@ -6,7 +6,7 @@ use crate::core::{Domain, Transformation};
 use crate::dom::{AllDomain, InherentNullDomain, VectorDomain, OptionNullDomain};
 use crate::error::Fallible;
 use crate::dom::InherentNull;
-use crate::samplers::SampleUniform;
+use crate::samplers::SampleContinuousUniform;
 use crate::trans::{make_row_by_row, make_row_by_row_fallible};
 use crate::dist::SymmetricDistance;
 
@@ -15,7 +15,7 @@ use crate::dist::SymmetricDistance;
 pub fn make_impute_uniform_float<T>(
     lower: T, upper: T,
 ) -> Fallible<Transformation<VectorDomain<InherentNullDomain<AllDomain<T>>>, VectorDomain<AllDomain<T>>, SymmetricDistance, SymmetricDistance>>
-    where for<'a> T: 'static + Float + SampleUniform + Clone + Sub<Output=T> + Mul<&'a T, Output=T> + Add<&'a T, Output=T> + InherentNull {
+    where for<'a> T: 'static + Float + SampleContinuousUniform + Clone + Sub<Output=T> + Mul<&'a T, Output=T> + Add<&'a T, Output=T> + InherentNull {
     if lower.is_nan() { return fallible!(MakeTransformation, "lower may not be nan"); }
     if upper.is_nan() { return fallible!(MakeTransformation, "upper may not be nan"); }
     if lower > upper { return fallible!(MakeTransformation, "lower may not be greater than upper") }

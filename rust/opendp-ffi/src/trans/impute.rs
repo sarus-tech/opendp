@@ -6,7 +6,7 @@ use num::Float;
 
 use opendp::dom::{AllDomain, InherentNull, InherentNullDomain, OptionNullDomain};
 use opendp::err;
-use opendp::samplers::SampleUniform;
+use opendp::samplers::SampleContinuousUniform;
 use opendp::trans::{ImputableDomain, make_impute_constant, make_impute_uniform_float};
 
 use crate::any::AnyTransformation;
@@ -23,7 +23,7 @@ pub extern "C" fn opendp_trans__make_impute_uniform_float(
     fn monomorphize<T>(
         lower: *const c_void, upper: *const c_void,
     ) -> FfiResult<*mut AnyTransformation>
-        where for<'a> T: 'static + Float + SampleUniform + Clone + Sub<Output=T> + Mul<&'a T, Output=T> + Add<&'a T, Output=T> + InherentNull {
+        where for<'a> T: 'static + Float + SampleContinuousUniform + Clone + Sub<Output=T> + Mul<&'a T, Output=T> + Add<&'a T, Output=T> + InherentNull {
         let lower = try_as_ref!(lower as *const T).clone();
         let upper = try_as_ref!(upper as *const T).clone();
         make_impute_uniform_float::<T>(
