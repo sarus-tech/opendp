@@ -5,7 +5,7 @@ use crate::dom::{PairDomain, VectorDomain};
 use crate::error::Fallible;
 use crate::traits::{MetricDistance, MeasureDistance, Midpoint, FallibleSub, Tolerance};
 use num::{Zero, One};
-use crate::dist::{MaxDivergence, SmoothedMaxDivergence, EpsilonDelta};
+use crate::dist::{MaxDivergence, SmoothedMaxDivergence, FSmoothedMaxDivergence, EpsilonDelta, AlphaBeta};
 
 pub fn make_chain_mt<DI, DX, DO, MI, MX, MO>(
     measurement1: &Measurement<DX, DO, MX, MO>,
@@ -92,6 +92,7 @@ impl<MI: Metric, Q: Clone> BasicComposition<MI> for MaxDivergence<Q>
         basic_composition(relations, d_in, d_out)
     }
 }
+
 impl<MI: Metric, Q: Clone> BasicComposition<MI> for SmoothedMaxDivergence<Q>
     where EpsilonDelta<Q>: BasicCompositionDistance<Atom=Q>,
           MI::Distance: Clone {
@@ -123,6 +124,49 @@ fn basic_composition<MI: Metric, MO: Measure>(
     }
     Ok(true)
 }
+use num::Float;
+pub fn compute_alpha_beta <Q:> (epsilons_deltas: &Vec<EpsilonDelta<Q>>) -> Vec<AlphaBeta<Q>>
+    where Q:  Zero + One + Clone + Sub + Float + Ord {
+    let mut alpha_beta_vec = vec![
+        AlphaBeta {alpha: Q::zero(), beta: Q::one() - epsilons_deltas[0].delta}
+        ];
+    let size = epsilons_deltas.iter().len();
+    for i in 1..size {
+        let alpha =
+            (epsilons_deltas[i-1].delta - epsilons_deltas[i].delta)
+            /
+            (epsilons_deltas[i].epsilon.exp() - epsilons_deltas[i-1].epsilon.exp());
+
+        let beta = (
+                epsilons_deltas[i].epsilon.exp() *(Q::one() - epsilons_deltas[i-1].delta)
+                -
+                epsilons_deltas[i-1].epsilon.exp() *(Q::one() - epsilons_deltas[i].delta)
+            )
+            /
+            (epsilons_deltas[i].epsilon.exp() - epsilons_deltas[i-1].epsilon.exp());
+        alpha_beta_vec.push(AlphaBeta {alpha: alpha, beta: beta});
+    }
+    let mut rev_alpha_beta_vec = alpha_beta_vec.iter().cloned()
+        .map(|alpha_beta| AlphaBeta {alpha: alpha_beta.beta, beta: alpha_beta.alpha})
+        .rev()
+        .collect();
+    alpha_beta_vec.append(&mut rev_alpha_beta_vec);
+    alpha_beta_vec
+}
+
+pub fn compute_adjacent_probabilities <Q:> (alphas_betas: &Vec<AlphaBeta<Q>>) -> Vec<(Q, Q)>
+    where Q:  Zero + One + Clone + Sub + Float{
+    let mut proba_vec = vec![(alphas_betas[0].alpha, alphas_betas[0].beta)];
+    let size = alphas_betas.iter().len();
+    for i in 1..size {
+        let p1 = alphas_betas[i].alpha - alphas_betas[i-1].alpha;
+        let p2 = alphas_betas[i].beta - alphas_betas[i-1].beta;
+        proba_vec.push((p1, p2));
+    }
+    proba_vec
+}
+
+
 pub fn make_basic_composition_multi<DI, DO, MI, MO>(
     measurements: &Vec<&Measurement<DI, DO, MI, MO>>
 ) -> Fallible<Measurement<DI, VectorDomain<DO>, MI, MO>>
@@ -311,8 +355,8 @@ mod tests {
     #[test]
     fn test_make_basic_composition_multi() -> Fallible<()> {
         let measurements = vec![
-            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(0.)?,
-            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(0.)?
+            make_base_laplace::<AllDomain<_>>(0.)?,
+            make_base_laplace(0.)?
         ];
         let composition = make_basic_composition_multi(&measurements.iter().collect())?;
         let arg = 99.;
@@ -322,8 +366,8 @@ mod tests {
         assert_eq!(ret, vec![99., 99.]);
 
         let measurements = vec![
-            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(1.)?,
-            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(1.)?
+            make_base_laplace::<AllDomain<_>>(1.)?,
+            make_base_laplace(1.)?
         ];
         let composition = make_basic_composition_multi(&measurements.iter().collect())?;
         // runs once because it sits on a power of 2

@@ -44,7 +44,7 @@ pub trait LaplacePrivacyRelation<MI: Metric>: Measure {
 }
 
 impl<MI: Metric> LaplacePrivacyRelation<MI> for MaxDivergence<MI::Distance>
-    where MI::Distance: 'static + Clone + SampleLaplace + Float + DistanceConstant,
+    where MI::Distance: 'static + Clone + Float + DistanceConstant,
           MI: SensitivityMetric {
     fn privacy_relation(scale: MI::Distance) -> PrivacyRelation<MI, Self>{
         PrivacyRelation::new_from_constant(scale.recip())
@@ -92,8 +92,9 @@ impl<MI: Metric> LaplacePrivacyRelation<MI> for FSmoothedMaxDivergence<MI::Dista
             }
             Ok(result)
         })
-    }
+       }
 }
+
 
 pub fn make_base_laplace<D, MO>(scale: D::Atom) -> Fallible<Measurement<D, D, D::Metric, MO>>
     where D: LaplaceDomain,
