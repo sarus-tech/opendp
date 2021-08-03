@@ -1,10 +1,10 @@
+use num::{Zero, One, Float};
 use std::ops::{Shr, Sub, Div};
 
 use crate::core::{Domain, Function, HintMt, HintTt, Measure, Measurement, Metric, PrivacyRelation, StabilityRelation, Transformation};
 use crate::dom::{PairDomain, VectorDomain};
 use crate::error::Fallible;
 use crate::traits::{MetricDistance, MeasureDistance, Midpoint, FallibleSub, Tolerance};
-use num::{Zero, One};
 use crate::dist::{MaxDivergence, SmoothedMaxDivergence, FSmoothedMaxDivergence, EpsilonDelta, AlphaBeta};
 
 pub fn make_chain_mt<DI, DX, DO, MI, MX, MO>(
@@ -124,7 +124,7 @@ fn basic_composition<MI: Metric, MO: Measure>(
     }
     Ok(true)
 }
-use num::Float;
+
 pub fn compute_alpha_beta <Q:> (epsilons_deltas: &Vec<EpsilonDelta<Q>>) -> Vec<AlphaBeta<Q>>
     where Q:  Zero + One + Clone + Sub + Float + Ord {
     let mut alpha_beta_vec = vec![

@@ -1,13 +1,17 @@
 //! Various implementations of Metric/Measure (and associated Distance).
 
 use std::marker::PhantomData;
-
-use crate::core::{DatasetMetric, Measure, Metric, SensitivityMetric, PrivacyRelation};
+use rug::float::Round;
+use rug::ops::DivAssignRound;
 use num::{One, Zero};
 use std::ops::Add;
 use std::cmp::Ordering;
+
+use crate::core::{DatasetMetric, Measure, Metric, SensitivityMetric, PrivacyRelation};
 use crate::traits::{Midpoint, Tolerance};
 use crate::error::Fallible;
+use crate::samplers::CastInternalReal;
+
 
 /// Measures
 #[derive(Clone)]
@@ -53,64 +57,84 @@ impl<Q: Clone> Measure for FSmoothedMaxDivergence<Q> {
     type Distance = Vec<EpsilonDelta<Q>>;
 }
 
-impl<MI: Metric, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
-    where Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd {
+
+impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
+     where MI: Metric,
+           Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd + CastInternalReal {
 
     pub fn find_epsilon (&self, d_in: &MI::Distance, delta: Q) -> Fallible<Option<Q>> {
         const MAX_ITERATIONS: usize = 100;
-        let mut eps_min = Q::zero();
-        let mut eps = Q::one();
-        let two = Q::one() + Q::one();
+        let mut eps_min:rug::Float = Q::zero().into_internal();
+        let mut eps:rug::Float = Q::one().into_internal();
+        let two:rug::Float = Q::one().into_internal() + Q::one().into_internal();
+        let delta:rug::Float = delta.into_internal();
+        let tolerance: rug::Float = Q::TOLERANCE.into_internal();
 
         for _ in 0..MAX_ITERATIONS {
 
-            let dout = vec![EpsilonDelta { epsilon: eps.clone(), delta: delta.clone()}];
+            let dout = vec![EpsilonDelta {
+                epsilon: Q::from_internal(eps.clone()),
+                delta: Q::from_internal(delta.clone()),
+            }];
             if !self.eval(&d_in, &dout)? {
                 eps = eps.clone() * two.clone();
             }
 
             else {
-                let eps_mid = eps_min.clone().midpoint(eps.clone());
-                let dout = vec![EpsilonDelta { epsilon: eps_mid.clone(), delta: delta.clone()}];
+                let mut eps_mid = eps_min.clone() + eps.clone();
+                eps_mid.div_assign_round(two.clone(), Round::Up);
+                let dout = vec![EpsilonDelta {
+                    epsilon: Q::from_internal(eps_mid.clone()),
+                    delta: Q::from_internal(delta.clone()),
+                }];
                 if self.eval(&d_in, &dout)? {
                     eps = eps_mid.clone();
                 } else {
                     eps_min = eps_mid.clone();
                 }
-                if eps <= Q::TOLERANCE + eps_min.clone() {
-                    return Ok(Some(eps))
+                if eps <= tolerance.clone() + eps_min.clone() {
+                    return Ok(Some(Q::from_internal(eps)))
                 }
             }
         }
-        Ok(Some(eps))
+        Ok(Some(Q::from_internal(eps)))
     }
 
     pub fn find_delta (&self, d_in: &MI::Distance, epsilon: Q) -> Fallible<Option<Q>> {
         const MAX_ITERATIONS: usize = 100;
-        let mut delta_min = Q::zero();
-        let mut delta = Q::one();
-        let two = Q::one() + Q::one();
+        let mut delta_min:rug::Float = Q::zero().into_internal();
+        let mut delta:rug::Float = Q::one().into_internal();
+        let two:rug::Float = Q::one().into_internal() + Q::one().into_internal();
+        let epsilon:rug::Float = epsilon.into_internal();
+        let tolerance: rug::Float = Q::TOLERANCE.into_internal();
 
         for _ in 0..MAX_ITERATIONS {
-            let dout = vec![EpsilonDelta { epsilon: epsilon.clone(), delta: delta.clone()}];
+            let dout = vec![EpsilonDelta {
+                epsilon: Q::from_internal(epsilon.clone()),
+                delta: Q::from_internal(delta.clone()),
+            }];
             if !self.eval(&d_in, &dout)? {
                 delta = delta.clone() * two.clone();
             }
 
             else {
-                let delta_mid = delta_min.clone().midpoint(delta.clone());
-                let dout = vec![EpsilonDelta { epsilon: epsilon.clone(), delta: delta_mid.clone()}];
+                let mut delta_mid = delta_min.clone() + delta.clone();
+                delta_mid.div_assign_round(two.clone(), Round::Up);
+                let dout = vec![EpsilonDelta {
+                    epsilon: Q::from_internal(epsilon.clone()),
+                    delta: Q::from_internal(delta_mid.clone()),
+                }];
                 if self.eval(&d_in, &dout)? {
                     delta = delta_mid.clone();
                 } else {
                     delta_min = delta_mid.clone();
                 }
-                if delta <= Q::TOLERANCE + delta_min.clone() {
-                    return Ok(Some(delta))
+                if delta <= tolerance.clone() + delta_min.clone() {
+                    return Ok(Some(Q::from_internal(delta)))
                 }
             }
         }
-        Ok(Some(delta))
+        Ok(Some(Q::from_internal(delta)))
     }
 }
 
