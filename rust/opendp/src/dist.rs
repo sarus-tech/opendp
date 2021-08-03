@@ -2,10 +2,12 @@
 
 use std::marker::PhantomData;
 
-use crate::core::{DatasetMetric, Measure, Metric, SensitivityMetric};
-use num::Zero;
+use crate::core::{DatasetMetric, Measure, Metric, SensitivityMetric, PrivacyRelation};
+use num::{One, Zero};
 use std::ops::Add;
 use std::cmp::Ordering;
+use crate::traits::{Midpoint, Tolerance};
+use crate::error::Fallible;
 
 /// Measures
 #[derive(Clone)]
@@ -49,6 +51,67 @@ impl<Q> PartialEq for FSmoothedMaxDivergence<Q> {
 
 impl<Q: Clone> Measure for FSmoothedMaxDivergence<Q> {
     type Distance = Vec<EpsilonDelta<Q>>;
+}
+
+impl<MI: Metric, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
+    where Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd {
+
+    pub fn find_epsilon (&self, d_in: &MI::Distance, delta: Q) -> Fallible<Option<Q>> {
+        const MAX_ITERATIONS: usize = 100;
+        let mut eps_min = Q::zero();
+        let mut eps = Q::one();
+        let two = Q::one() + Q::one();
+
+        for _ in 0..MAX_ITERATIONS {
+
+            let dout = vec![EpsilonDelta { epsilon: eps.clone(), delta: delta.clone()}];
+            if !self.eval(&d_in, &dout)? {
+                eps = eps.clone() * two.clone();
+            }
+
+            else {
+                let eps_mid = eps_min.clone().midpoint(eps.clone());
+                let dout = vec![EpsilonDelta { epsilon: eps_mid.clone(), delta: delta.clone()}];
+                if self.eval(&d_in, &dout)? {
+                    eps = eps_mid.clone();
+                } else {
+                    eps_min = eps_mid.clone();
+                }
+                if eps <= Q::TOLERANCE + eps_min.clone() {
+                    return Ok(Some(eps))
+                }
+            }
+        }
+        Ok(Some(eps))
+    }
+
+    pub fn find_delta (&self, d_in: &MI::Distance, epsilon: Q) -> Fallible<Option<Q>> {
+        const MAX_ITERATIONS: usize = 100;
+        let mut delta_min = Q::zero();
+        let mut delta = Q::one();
+        let two = Q::one() + Q::one();
+
+        for _ in 0..MAX_ITERATIONS {
+            let dout = vec![EpsilonDelta { epsilon: epsilon.clone(), delta: delta.clone()}];
+            if !self.eval(&d_in, &dout)? {
+                delta = delta.clone() * two.clone();
+            }
+
+            else {
+                let delta_mid = delta_min.clone().midpoint(delta.clone());
+                let dout = vec![EpsilonDelta { epsilon: epsilon.clone(), delta: delta_mid.clone()}];
+                if self.eval(&d_in, &dout)? {
+                    delta = delta_mid.clone();
+                } else {
+                    delta_min = delta_mid.clone();
+                }
+                if delta <= Q::TOLERANCE + delta_min.clone() {
+                    return Ok(Some(delta))
+                }
+            }
+        }
+        Ok(Some(delta))
+    }
 }
 
 /// Metrics

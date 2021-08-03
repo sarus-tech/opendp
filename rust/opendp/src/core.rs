@@ -21,12 +21,9 @@
 // DI, DO, MI, MO, TI, TO, QI, QO
 
 use std::rc::Rc;
-use num::{Zero, One};
-
 use crate::dom::PairDomain;
 use crate::error::*;
-use crate::traits::{DistanceCast, DistanceConstant, Midpoint, Tolerance};
-use crate::dist::{EpsilonDelta, FSmoothedMaxDivergence};
+use crate::traits::{DistanceCast, DistanceConstant};
 
 /// A set which constrains the input or output of a [`Function`].
 ///
@@ -176,133 +173,6 @@ impl<MI: Metric, MO: Measure> PrivacyRelation<MI, MO> {
     }
 }
 
-impl<MI: Metric, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
-    where Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd {
-
-    pub fn find_epsilon (&self, d_in: &MI::Distance, delta: Q) -> Fallible<Option<Q>> {
-        const MAX_ITERATIONS: usize = 100;
-        let mut eps_min = Q::zero();
-        let mut eps = Q::one();
-        let two = Q::one() + Q::one();
-
-        let mut dout = vec![EpsilonDelta { epsilon: eps.clone(), delta: delta.clone()}];
-        for _ in 0..MAX_ITERATIONS {
-
-            dout = vec![EpsilonDelta { epsilon: eps.clone(), delta: delta.clone()}];
-            if !self.eval(&d_in, &dout)? {
-                eps = eps.clone() * two.clone();
-            }
-
-            else {
-                let eps_mid = eps_min.clone().midpoint(eps.clone());
-                dout = vec![EpsilonDelta { epsilon: eps_mid.clone(), delta: delta.clone()}];
-                if self.eval(&d_in, &dout)? {
-                    eps = eps_mid.clone();
-                } else {
-                    eps_min = eps_mid.clone();
-                }
-                if eps <= Q::TOLERANCE + eps_min.clone() {
-                    return Ok(Some(eps))
-                }
-            }
-        }
-        Ok(Some(eps))
-    }
-
-    pub fn find_delta (&self, d_in: &MI::Distance, epsilon: Q) -> Fallible<Option<Q>> {
-        const MAX_ITERATIONS: usize = 100;
-        let mut delta_min = Q::zero();
-        let mut delta = Q::one();
-        let two = Q::one() + Q::one();
-
-        let mut dout = vec![EpsilonDelta { epsilon: epsilon.clone(), delta: delta.clone()}];
-        for _ in 0..MAX_ITERATIONS {
-            dout = vec![EpsilonDelta { epsilon: epsilon.clone(), delta: delta.clone()}];
-            if !self.eval(&d_in, &dout)? {
-                delta = delta.clone() * two.clone();
-            }
-
-            else {
-                let delta_mid = delta_min.clone().midpoint(delta.clone());
-                dout = vec![EpsilonDelta { epsilon: epsilon.clone(), delta: delta_mid.clone()}];
-                if self.eval(&d_in, &dout)? {
-                    delta = delta_mid.clone();
-                } else {
-                    delta_min = delta_mid.clone();
-                }
-                if delta <= Q::TOLERANCE + delta_min.clone() {
-                    return Ok(Some(delta))
-                }
-            }
-        }
-        Ok(Some(delta))
-    }
-}
-
-// use crate::samplers::SampleLaplace;
-// impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
-//     where Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd,
-//           MI: Metric + SampleLaplace {
-
-//     pub fn find_epsilon (&self, d_in: &MI::Distance, delta: Q) -> Fallible<Option<Q>> {
-//         const MAX_ITERATIONS: usize = 100;
-//         let mut eps_min = Q::zero();
-//         let mut eps = Q::one();
-//         let two = Q::one() + Q::one();
-
-//         let mut dout = vec![EpsilonDelta { epsilon: eps.clone(), delta: delta.clone()}];
-//         for _ in 0..MAX_ITERATIONS {
-
-//             dout = vec![EpsilonDelta { epsilon: eps.clone(), delta: delta.clone()}];
-//             if !self.eval(&d_in, &dout)? {
-//                 eps = eps.clone() * two.clone();
-//             }
-
-//             else {
-//                 let eps_mid = eps_min.clone().midpoint(eps.clone());
-//                 dout = vec![EpsilonDelta { epsilon: eps_mid.clone(), delta: delta.clone()}];
-//                 if self.eval(&d_in, &dout)? {
-//                     eps = eps_mid.clone();
-//                 } else {
-//                     eps_min = eps_mid.clone();
-//                 }
-//                 if eps <= Q::TOLERANCE + eps_min.clone() {
-//                     return Ok(Some(eps))
-//                 }
-//             }
-//         }
-//         Ok(Some(eps))
-//     }
-
-//     pub fn find_delta (&self, d_in: &MI::Distance, epsilon: Q) -> Fallible<Option<Q>> {
-//         const MAX_ITERATIONS: usize = 100;
-//         let mut delta_min = Q::zero();
-//         let mut delta = Q::one();
-//         let two = Q::one() + Q::one();
-
-//         let mut dout = vec![EpsilonDelta { epsilon: epsilon.clone(), delta: delta.clone()}];
-//         for _ in 0..MAX_ITERATIONS {
-//             dout = vec![EpsilonDelta { epsilon: epsilon.clone(), delta: delta.clone()}];
-//             if !self.eval(&d_in, &dout)? {
-//                 delta = delta.clone() * two.clone();
-//             }
-
-//             else {
-//                 let delta_mid = delta_min.clone().midpoint(delta.clone());
-//                 dout = vec![EpsilonDelta { epsilon: epsilon.clone(), delta: delta_mid.clone()}];
-//                 if self.eval(&d_in, &dout)? {
-//                     delta = delta_mid.clone();
-//                 } else {
-//                     delta_min = delta_mid.clone();
-//                 }
-//                 if delta <= Q::TOLERANCE + delta_min.clone() {
-//                     return Ok(Some(delta))
-//                 }
-//             }
-//         }
-//         Ok(Some(delta))
-//     }
-// }
 
 fn chain_option_maps<QI, QX, QO>(
     map1: &Option<Rc<dyn Fn(&QX) -> Fallible<Box<QO>>>>,
