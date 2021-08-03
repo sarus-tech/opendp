@@ -6,6 +6,7 @@ use crate::dom::{PairDomain, VectorDomain};
 use crate::error::Fallible;
 use crate::traits::{MetricDistance, MeasureDistance, Midpoint, FallibleSub, Tolerance};
 use crate::dist::{MaxDivergence, SmoothedMaxDivergence, FSmoothedMaxDivergence, EpsilonDelta, AlphaBeta};
+use crate::samplers::CastInternalReal;
 
 pub fn make_chain_mt<DI, DX, DO, MI, MX, MO>(
     measurement1: &Measurement<DX, DO, MX, MO>,
@@ -125,25 +126,27 @@ fn basic_composition<MI: Metric, MO: Measure>(
     Ok(true)
 }
 
-pub fn compute_alpha_beta <Q:> (epsilons_deltas: &Vec<EpsilonDelta<Q>>) -> Vec<AlphaBeta<Q>>
-    where Q:  Zero + One + Clone + Sub + Float + Ord {
+pub fn compute_alpha_beta <Q> (epsilons_deltas: &Vec<EpsilonDelta<Q>>) -> Vec<AlphaBeta>
+    where Q:  Zero + One + Clone + Sub + Float + CastInternalReal{
+    let one: rug::Float = Q::one().into_internal();
+    let zero: rug::Float = Q::zero().into_internal();
     let mut alpha_beta_vec = vec![
-        AlphaBeta {alpha: Q::zero(), beta: Q::one() - epsilons_deltas[0].delta}
+        AlphaBeta {alpha: zero.clone(), beta: one.clone() - epsilons_deltas[0].delta.into_internal()}
         ];
     let size = epsilons_deltas.iter().len();
     for i in 1..size {
         let alpha =
-            (epsilons_deltas[i-1].delta - epsilons_deltas[i].delta)
+            (epsilons_deltas[i-1].delta.into_internal() - epsilons_deltas[i].delta.into_internal())
             /
-            (epsilons_deltas[i].epsilon.exp() - epsilons_deltas[i-1].epsilon.exp());
+            (epsilons_deltas[i].epsilon.into_internal().exp() - epsilons_deltas[i-1].epsilon.into_internal().exp());
 
         let beta = (
-                epsilons_deltas[i].epsilon.exp() *(Q::one() - epsilons_deltas[i-1].delta)
+                epsilons_deltas[i].epsilon.into_internal().exp() *(one.clone() - epsilons_deltas[i-1].delta.into_internal())
                 -
-                epsilons_deltas[i-1].epsilon.exp() *(Q::one() - epsilons_deltas[i].delta)
+                epsilons_deltas[i-1].epsilon.into_internal().exp() *(one.clone() - epsilons_deltas[i].delta.into_internal())
             )
             /
-            (epsilons_deltas[i].epsilon.exp() - epsilons_deltas[i-1].epsilon.exp());
+            (epsilons_deltas[i].epsilon.into_internal().exp() - epsilons_deltas[i-1].epsilon.into_internal().exp());
         alpha_beta_vec.push(AlphaBeta {alpha: alpha, beta: beta});
     }
     let mut rev_alpha_beta_vec = alpha_beta_vec.iter().cloned()
@@ -151,19 +154,28 @@ pub fn compute_alpha_beta <Q:> (epsilons_deltas: &Vec<EpsilonDelta<Q>>) -> Vec<A
         .rev()
         .collect();
     alpha_beta_vec.append(&mut rev_alpha_beta_vec);
+    alpha_beta_vec.sort_by(|a, b| b.alpha.partial_cmp(&a.alpha).unwrap());
+    alpha_beta_vec.reverse();
     alpha_beta_vec
 }
 
-pub fn compute_adjacent_probabilities <Q:> (alphas_betas: &Vec<AlphaBeta<Q>>) -> Vec<(Q, Q)>
-    where Q:  Zero + One + Clone + Sub + Float{
-    let mut proba_vec = vec![(alphas_betas[0].alpha, alphas_betas[0].beta)];
+pub fn compute_adjacent_probabilities (alphas_betas: &Vec<AlphaBeta>) -> Vec<(rug::Float, rug::Float)> {
+    let precision = alphas_betas[0].alpha.prec();
+    let mut proba_vec: Vec<rug::Float> = Vec::new();
+    let one: rug::Float = rug::Float::with_val(precision, 1.);
+    let zero: rug::Float = rug::Float::with_val(precision, 1.);
     let size = alphas_betas.iter().len();
     for i in 1..size {
-        let p1 = alphas_betas[i].alpha - alphas_betas[i-1].alpha;
-        let p2 = alphas_betas[i].beta - alphas_betas[i-1].beta;
-        proba_vec.push((p1, p2));
-    }
-    proba_vec
+        proba_vec.push(alphas_betas[i].alpha.clone() - alphas_betas[i-1].alpha.clone());
+        }
+    proba_vec.push(one.clone() - rug::Float::with_val(precision, rug::Float::sum(proba_vec.clone().iter())));
+    let mut probas_log_ratio: Vec<(rug::Float, rug::Float)> = proba_vec.iter()
+        .zip(proba_vec.iter().rev())
+        .map(|(p,q)| (p.clone(), p.clone().ln() - q.clone().ln()))
+        .collect::<Vec<(rug::Float, rug::Float)>>();
+    probas_log_ratio.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    probas_log_ratio.reverse();
+    probas_log_ratio
 }
 
 

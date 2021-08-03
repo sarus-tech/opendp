@@ -57,7 +57,6 @@ impl<Q: Clone> Measure for FSmoothedMaxDivergence<Q> {
     type Distance = Vec<EpsilonDelta<Q>>;
 }
 
-
 impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
      where MI: Metric,
            Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd + CastInternalReal {
@@ -250,37 +249,49 @@ impl<T: Add<Output=T> + Clone> Add<EpsilonDelta<T>> for EpsilonDelta<T> {
 }
 
 #[derive(Debug)]
-pub struct AlphaBeta<T: Sized>{pub alpha: T, pub beta: T}
+pub struct AlphaBeta{pub alpha: rug::Float, pub beta: rug::Float}
 
 // Derive annotations force traits to be present on the generic
-impl<T: PartialOrd> PartialOrd for AlphaBeta<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let alpha_ord = self.alpha.partial_cmp(&other.alpha);
-        let beta_ord = self.beta.partial_cmp(&other.beta);
-        if alpha_ord == beta_ord { alpha_ord } else { None }
-    }
-}
-impl<T: Clone> Clone for AlphaBeta<T> {
+// impl<T: PartialOrd> PartialOrd for AlphaBeta<T> {
+//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+//         let alpha_ord = self.alpha.partial_cmp(&other.alpha);
+//         let beta_ord = self.beta.partial_cmp(&other.beta);
+//         if alpha_ord == beta_ord { alpha_ord } else { None }
+//     }
+// }
+impl Clone for AlphaBeta {
     fn clone(&self) -> Self {
         AlphaBeta {alpha: self.alpha.clone(), beta: self.beta.clone()}
     }
 }
-impl<T: PartialEq> PartialEq for AlphaBeta<T> {
+impl PartialEq for AlphaBeta {
     fn eq(&self, other: &Self) -> bool {
-        self.alpha == other.alpha && self.beta == other.beta
+        self.alpha == other.alpha //&& self.beta == other.beta
     }
 }
-impl<T: Zero + Sized + Add<Output=T> + Clone> Zero for AlphaBeta<T> {
-    fn zero() -> Self {
-        AlphaBeta { alpha: T::zero(), beta: T::zero() }
-    }
-    fn is_zero(&self) -> bool {
-        self.alpha.is_zero() && self.beta.is_zero()
-    }
-}
-impl<T: Add<Output=T> + Clone> Add<AlphaBeta<T>> for AlphaBeta<T> {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        AlphaBeta {alpha: self.alpha + rhs.alpha, beta: self.beta + rhs.beta}
-    }
-}
+// impl PartialOrd for AlphaBeta {
+//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+//         Some(self.cmp(other))
+//     }
+// }
+// impl Eq for AlphaBeta {}
+// impl Ord for AlphaBeta {
+//     fn cmp(&self, other: &Self) -> Ordering {
+//         self.alpha.cmp(&other.alpha)
+//     }
+// }
+
+// impl Zero for AlphaBeta {
+//     fn zero() -> Self {
+//         AlphaBeta { alpha: T::zero(), beta: T::zero() }
+//     }
+//     fn is_zero(&self) -> bool {
+//         self.alpha.is_zero() && self.beta.is_zero()
+//     }
+// }
+// impl<T: Add<Output=T> + Clone> Add<AlphaBeta<T>> for AlphaBeta<T> {
+//     type Output = Self;
+//     fn add(self, rhs: Self) -> Self::Output {
+//         AlphaBeta {alpha: self.alpha + rhs.alpha, beta: self.beta + rhs.beta}
+//     }
+// }
