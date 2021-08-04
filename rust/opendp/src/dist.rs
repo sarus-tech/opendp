@@ -251,14 +251,6 @@ impl<T: Add<Output=T> + Clone> Add<EpsilonDelta<T>> for EpsilonDelta<T> {
 #[derive(Debug)]
 pub struct AlphaBeta{pub alpha: rug::Float, pub beta: rug::Float}
 
-// Derive annotations force traits to be present on the generic
-// impl<T: PartialOrd> PartialOrd for AlphaBeta<T> {
-//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-//         let alpha_ord = self.alpha.partial_cmp(&other.alpha);
-//         let beta_ord = self.beta.partial_cmp(&other.beta);
-//         if alpha_ord == beta_ord { alpha_ord } else { None }
-//     }
-// }
 impl Clone for AlphaBeta {
     fn clone(&self) -> Self {
         AlphaBeta {alpha: self.alpha.clone(), beta: self.beta.clone()}
@@ -269,29 +261,3 @@ impl PartialEq for AlphaBeta {
         self.alpha == other.alpha //&& self.beta == other.beta
     }
 }
-// impl PartialOrd for AlphaBeta {
-//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-//         Some(self.cmp(other))
-//     }
-// }
-// impl Eq for AlphaBeta {}
-// impl Ord for AlphaBeta {
-//     fn cmp(&self, other: &Self) -> Ordering {
-//         self.alpha.cmp(&other.alpha)
-//     }
-// }
-
-// impl Zero for AlphaBeta {
-//     fn zero() -> Self {
-//         AlphaBeta { alpha: T::zero(), beta: T::zero() }
-//     }
-//     fn is_zero(&self) -> bool {
-//         self.alpha.is_zero() && self.beta.is_zero()
-//     }
-// }
-// impl<T: Add<Output=T> + Clone> Add<AlphaBeta<T>> for AlphaBeta<T> {
-//     type Output = Self;
-//     fn add(self, rhs: Self) -> Self::Output {
-//         AlphaBeta {alpha: self.alpha + rhs.alpha, beta: self.beta + rhs.beta}
-//     }
-// }

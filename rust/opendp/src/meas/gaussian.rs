@@ -84,7 +84,6 @@ impl<MI: Metric> GaussianPrivacyRelation<MI> for FSmoothedMaxDivergence<MI::Dist
             //println!("scale {:?}", scale);
             //scale.ln_round(Round::Up);
             //let _ln_scale_back_in_native_type = MI::Distance::from_internal(scale);
-
             let _2 = num_cast!(2.; MI::Distance)?;
             let additive_gauss_const = num_cast!(ADDITIVE_GAUSS_CONST; MI::Distance)?;
 

@@ -65,9 +65,10 @@ pub fn compute_dual_epsilon_delta<Q: 'static + Float + Clone + CastInternalReal 
     }
 }
 
+use std::fmt::Debug;// TODO: rm debug
 //#[cfg(feature="use-mpfr")]
 impl<MI: Metric> LaplacePrivacyRelation<MI> for FSmoothedMaxDivergence<MI::Distance>
-    where MI::Distance: 'static + Clone + Float + One + CastInternalReal,
+    where MI::Distance: 'static + Clone + Float + One + CastInternalReal + Debug, // TODO: rm debug
           MI: SensitivityMetric {
     fn privacy_relation(scale: MI::Distance) -> PrivacyRelation<MI, Self> {
         PrivacyRelation::new_fallible(move |d_in: &MI::Distance, d_out: &Vec<EpsilonDelta<MI::Distance>>| {
