@@ -56,13 +56,14 @@ impl<Q> PartialEq for FSmoothedMaxDivergence<Q> {
 impl<Q: Clone> Measure for FSmoothedMaxDivergence<Q> {
     type Distance = Vec<EpsilonDelta<Q>>;
 }
+const MAX_ITERATIONS: usize = 100;
 
 impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
      where MI: Metric,
            Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd + CastInternalReal {
 
     pub fn find_epsilon (&self, d_in: &MI::Distance, delta: Q) -> Fallible<Option<Q>> {
-        const MAX_ITERATIONS: usize = 100;
+
         let mut eps_min:rug::Float = Q::zero().into_internal();
         let mut eps:rug::Float = Q::one().into_internal();
         let two:rug::Float = Q::one().into_internal() + Q::one().into_internal();
@@ -100,7 +101,6 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
     }
 
     pub fn find_delta (&self, d_in: &MI::Distance, epsilon: Q) -> Fallible<Option<Q>> {
-        const MAX_ITERATIONS: usize = 100;
         let mut delta_min:rug::Float = Q::zero().into_internal();
         let mut delta:rug::Float = Q::one().into_internal();
         let two:rug::Float = Q::one().into_internal() + Q::one().into_internal();
