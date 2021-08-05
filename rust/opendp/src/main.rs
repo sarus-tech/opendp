@@ -11,8 +11,8 @@ use opendp::meas::{make_base_laplace, make_base_gaussian};
 fn main(){
     // Laplace with FSmoothedMaxDivergence
     println!("\nLaplace with FSmoothedMaxDivergence");
-    let scale1 = 1.0;
-    let measurement1 = make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(scale1).unwrap();
+    let scale1:f64 = 1.0;
+    let measurement1 = make_base_laplace::<AllDomain<f64>, FSmoothedMaxDivergence<f64>>(scale1).unwrap();
     let predicate1 = measurement1.privacy_relation.clone();
     let d_in = 1.0;
     let d_out = vec![
@@ -58,6 +58,16 @@ fn main(){
         npoints,
         delta_min,
     ).unwrap();
+    println!("privacy_relation: {}", composition.privacy_relation.eval(&d_in, &d_out).unwrap());
+
+    // let npoints: u8 = 2;
+    // let epsilons_deltas = composition.privacy_relation.find_epsilons_deltas(
+    //     npoints.clone(),
+    //     delta_min.clone(),
+    //     d_in.clone()
+    // );
+    // println!("epsilons, deltas = {:?}", epsilons_deltas);
+
 
     // Laplace with FSmoothedMaxDivergence
     // println!("\nLaplace with FSmoothedMaxDivergence");

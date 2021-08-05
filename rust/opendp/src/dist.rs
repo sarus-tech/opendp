@@ -57,10 +57,13 @@ impl<Q: Clone> Measure for FSmoothedMaxDivergence<Q> {
     type Distance = Vec<EpsilonDelta<Q>>;
 }
 const MAX_ITERATIONS: usize = 100;
+use core::fmt::Debug;
+
 
 impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
      where MI: Metric,
-           Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd + CastInternalReal {
+           Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd + CastInternalReal { //,
+           //MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Copy {
 
     pub fn find_epsilon (&self, d_in: &MI::Distance, delta: Q) -> Fallible<Q> {
         let mut eps_min:rug::Float = Q::zero().into_internal();
@@ -133,6 +136,29 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
             }
         }
         Ok(Q::from_internal(delta))
+    }
+
+    pub fn find_epsilons_deltas (
+        &self,
+        npoints: u8,
+        delta_min: Q,
+        d_in: MI::Distance,
+    ) -> Vec<EpsilonDelta<Q>> {
+        let delta_max = Q::from_internal(rug::Float::with_val(4, 1.0));
+        let max_epsilon_exp = self.find_epsilon(&d_in, delta_min).unwrap().into_internal().exp();
+        let min_epsilon_exp = self.find_epsilon(&d_in, delta_max).unwrap().into_internal().exp();
+
+        let step = (max_epsilon_exp.clone() - min_epsilon_exp.clone()) / rug::Float::with_val(4, npoints - 1);
+        (0..npoints)
+            .map(|i| Q::from_internal(
+                (min_epsilon_exp.clone() + step.clone() * rug::Float::with_val(4, i)).ln()
+            ))
+            .map(|eps| EpsilonDelta{
+                epsilon: eps.clone(),
+                delta: self.find_delta(&d_in, eps.clone()).unwrap()
+            })
+            .rev()
+            .collect()
     }
 }
 

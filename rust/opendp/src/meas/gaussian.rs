@@ -4,7 +4,7 @@ use crate::core::{Function, Measure, Measurement, Metric, PrivacyRelation, Domai
 use crate::dist::{L2Distance, SmoothedMaxDivergence, AbsoluteDistance, EpsilonDelta, FSmoothedMaxDivergence};
 use crate::dom::{AllDomain, VectorDomain};
 use crate::error::*;
-use crate::samplers::SampleGaussian;
+use crate::samplers::{CastInternalReal, SampleGaussian};
 use crate::chain::BasicCompositionDistance;
 
 // const ADDITIVE_GAUSS_CONST: f64 = 8. / 9. + (2. / PI).ln();
@@ -71,44 +71,50 @@ impl<MI: Metric> GaussianPrivacyRelation<MI> for SmoothedMaxDivergence<MI::Dista
     }
 }
 
+fn compute_dual_epsilon_delta_gaussian<Q: 'static + Float + Clone + CastInternalReal > (scale: Q, epsilon: Q) -> EpsilonDelta<Q> { // implement trait
+    use rug::float::Round;
+    let mut scale_float: rug::Float = scale.clone().into_internal();
+    scale_float.recip_round(Round::Up); // scale_float -> 1 / scale_float
+    let epsilon_float: rug::Float = epsilon.clone().into_internal();
+    let mut res = (epsilon_float - scale_float) / (2.).into_internal();
+    res.exp_round(Round::Down); // res =  exp((epsilon - 1 / scale) / 2)
+    let delta = Q::one() - Q::from_internal(res); // delta = 1 - exp((epsilon - 1 / scale) / 2)
+    EpsilonDelta {
+        epsilon: epsilon,
+        delta: delta,
+    }
+}
+
+use std::fmt::Debug;
 //#[cfg(feature="use-mpfr")]
 impl<MI: Metric> GaussianPrivacyRelation<MI> for FSmoothedMaxDivergence<MI::Distance>
-    where MI::Distance: 'static + Clone + Float + One,
+    where MI::Distance: 'static + Clone + Float + One + CastInternalReal + Debug, // TODO: rm debug
           MI: SensitivityMetric {
     fn privacy_relation(scale: MI::Distance) -> PrivacyRelation<MI, Self> {
-        PrivacyRelation::new_fallible(move |d_in: &MI::Distance, d_out: &Vec<EpsilonDelta<MI::Distance>>| {
-            //use rug::float::Round;
-            //let d_in: rug::Float = d_in.clone().into_internal();
-            //let mut scale: rug::Float = scale.clone().into_internal();
-            //println!("input distance {:?}", d_in);
-            //println!("scale {:?}", scale);
-            //scale.ln_round(Round::Up);
-            //let _ln_scale_back_in_native_type = MI::Distance::from_internal(scale);
-            let _2 = num_cast!(2.; MI::Distance)?;
-            let additive_gauss_const = num_cast!(ADDITIVE_GAUSS_CONST; MI::Distance)?;
-
+        let privacy = PrivacyRelation::new_fallible(move |d_in: &MI::Distance, d_out: &Vec<EpsilonDelta<MI::Distance>>| {
             if d_in.is_sign_negative() {
                 return fallible!(InvalidDistance, "gaussian mechanism: input sensitivity must be non-negative")
             }
 
             let mut result = true;
             for EpsilonDelta { epsilon, delta } in d_out {
-                if epsilon.is_sign_negative() || epsilon.is_zero() {
-                    return fallible!(InvalidDistance, "gaussian mechanism: epsilon must be positive")
+                if epsilon.is_sign_negative() {
+                    return fallible!(InvalidDistance, "gaussian mechanism: epsilon must be positive or 0")
                 }
-                if delta.is_sign_negative() || delta.is_zero() {
-                    return fallible!(InvalidDistance, "gaussian mechanism: delta must be positive")
+                if delta.is_sign_negative() {
+                    return fallible!(InvalidDistance, "gaussian mechanism: delta must be positive or 0")
                 }
 
-                let inter_result = epsilon.clone().min(MI::Distance::one()) >= (d_in.clone() / scale.clone()) * (additive_gauss_const.clone() + _2.clone() * delta.clone().recip().ln()).sqrt();
-                result = result & inter_result;
-                if inter_result == false {
+                let delta_dual = compute_dual_epsilon_delta_gaussian(scale, *epsilon).delta;
+                result = result & (delta >= &delta_dual);
+                if result == false {
                     break;
                 }
             }
             Ok(result)
-        })
-    }
+        });
+        privacy
+        }
 }
 
 pub fn make_base_gaussian<D, MO>(scale: D::Atom) -> Fallible<Measurement<D, D, D::Metric, MO>>

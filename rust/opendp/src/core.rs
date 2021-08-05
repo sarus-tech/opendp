@@ -140,22 +140,23 @@ impl<MI: Metric, MO: Measure> PrivacyRelation<MI, MO> {
         let privacy_relation = Rc::new(move |d_in: &MI::Distance, d_out: &MO::Distance| Ok(relation(d_in, d_out)));
         PrivacyRelation {
             relation: privacy_relation,
-            backward_map: None
+            backward_map: None,
         }
     }
     pub fn new_fallible(relation: impl Fn(&MI::Distance, &MO::Distance) -> Fallible<bool> + 'static) -> Self {
         PrivacyRelation {
             relation: Rc::new(relation),
-            backward_map: None
+            backward_map: None,
         }
     }
+
     pub fn new_all(
         relation: impl Fn(&MI::Distance, &MO::Distance) -> Fallible<bool> + 'static,
         backward_map: Option<impl Fn(&MO::Distance) -> Fallible<Box<MI::Distance>> + 'static>
     ) -> Self {
         PrivacyRelation {
             relation: Rc::new(relation),
-            backward_map: backward_map.map(|h| Rc::new(h) as Rc<_>)
+            backward_map: backward_map.map(|h| Rc::new(h) as Rc<_>),
         }
     }
     pub fn new_from_constant(c: MO::Distance) -> Self where
@@ -220,7 +221,7 @@ impl<MI: 'static + Metric, MO: 'static + Measure> PrivacyRelation<MI, MO> {
     fn make_chain_hint<MX: 'static + Metric>(relation1: &PrivacyRelation<MX, MO>, relation0: &StabilityRelation<MI, MX>, hint: &HintMt<MI, MO, MX>) -> Self {
         let PrivacyRelation {
             relation: relation1,
-            backward_map: backward_map1
+            backward_map: backward_map1,
         } = relation1;
 
         let StabilityRelation {

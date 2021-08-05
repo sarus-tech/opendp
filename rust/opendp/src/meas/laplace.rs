@@ -44,14 +44,14 @@ pub trait LaplacePrivacyRelation<MI: Metric>: Measure {
 }
 
 impl<MI: Metric> LaplacePrivacyRelation<MI> for MaxDivergence<MI::Distance>
-    where MI::Distance: 'static + Clone + Float + DistanceConstant,
+    where MI::Distance: 'static + Clone + Float + DistanceConstant + SampleLaplace,
           MI: SensitivityMetric {
     fn privacy_relation(scale: MI::Distance) -> PrivacyRelation<MI, Self>{
         PrivacyRelation::new_from_constant(scale.recip())
     }
 }
 
-pub fn compute_dual_epsilon_delta<Q: 'static + Float + Clone + CastInternalReal > (scale: Q, epsilon: Q) -> EpsilonDelta<Q> { // implement trait
+fn compute_dual_epsilon_delta_laplace<Q: 'static + Float + Clone + CastInternalReal > (scale: Q, epsilon: Q) -> EpsilonDelta<Q> { // implement trait
     use rug::float::Round;
     let mut scale_float: rug::Float = scale.clone().into_internal();
     scale_float.recip_round(Round::Up); // scale_float -> 1 / scale_float
@@ -64,6 +64,12 @@ pub fn compute_dual_epsilon_delta<Q: 'static + Float + Clone + CastInternalReal 
         delta: delta,
     }
 }
+
+// fn find_delta_laplace(scale: MI::Distance, d_in: &MI::Distance, epsilon: rug::Float) -> rug::Float {
+//     let epsilon = MI::Distance::from_internal(epsilon);
+//     let delta = compute_dual_epsilon_delta_laplace(scale, epsilon);
+//     delta.into_internal()
+// }
 
 use std::fmt::Debug;// TODO: rm debug
 //#[cfg(feature="use-mpfr")]
@@ -85,7 +91,7 @@ impl<MI: Metric> LaplacePrivacyRelation<MI> for FSmoothedMaxDivergence<MI::Dista
                     return fallible!(InvalidDistance, "laplace mechanism: delta must be positive or 0")
                 }
 
-                let delta_dual = compute_dual_epsilon_delta(scale, *epsilon).delta;
+                let delta_dual = compute_dual_epsilon_delta_laplace(scale, *epsilon).delta;
                 result = result & (delta >= &delta_dual);
                 if result == false {
                     break;
@@ -95,7 +101,6 @@ impl<MI: Metric> LaplacePrivacyRelation<MI> for FSmoothedMaxDivergence<MI::Dista
         })
        }
 }
-
 
 pub fn make_base_laplace<D, MO>(scale: D::Atom) -> Fallible<Measurement<D, D, D::Metric, MO>>
     where D: LaplaceDomain,

@@ -11,11 +11,8 @@ use crate::any::AnyMeasurement;
 use crate::core::{FfiResult, IntoAnyMeasurementFfiResultExt};
 use crate::util::Type;
 use opendp::dom::{AllDomain, VectorDomain};
-<<<<<<< HEAD
 use opendp::chain::BasicCompositionDistance;
-=======
 use opendp::dist::{SmoothedMaxDivergence};
->>>>>>> 42eb09f6146c77df256bf07d75418e14ffba2725
 
 #[no_mangle]
 pub extern "C" fn opendp_meas__make_base_gaussian(
