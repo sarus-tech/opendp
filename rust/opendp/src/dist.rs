@@ -63,13 +63,12 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
            Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd + CastInternalReal {
 
     pub fn find_epsilon (&self, d_in: &MI::Distance, delta: Q) -> Fallible<Option<Q>> {
-
         let mut eps_min:rug::Float = Q::zero().into_internal();
         let mut eps:rug::Float = Q::one().into_internal();
-        let two:rug::Float = Q::one().into_internal() + Q::one().into_internal();
         let delta:rug::Float = delta.into_internal();
-        let tolerance: rug::Float = Q::TOLERANCE.into_internal();
 
+        let two:rug::Float = Q::one().into_internal() + Q::one().into_internal();
+        let tolerance: rug::Float = Q::TOLERANCE.into_internal();
         for _ in 0..MAX_ITERATIONS {
 
             let dout = vec![EpsilonDelta {
@@ -103,10 +102,10 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
     pub fn find_delta (&self, d_in: &MI::Distance, epsilon: Q) -> Fallible<Option<Q>> {
         let mut delta_min:rug::Float = Q::zero().into_internal();
         let mut delta:rug::Float = Q::one().into_internal();
-        let two:rug::Float = Q::one().into_internal() + Q::one().into_internal();
         let epsilon:rug::Float = epsilon.into_internal();
-        let tolerance: rug::Float = Q::TOLERANCE.into_internal();
 
+        let two:rug::Float = Q::one().into_internal() + Q::one().into_internal();
+        let tolerance: rug::Float = Q::TOLERANCE.into_internal();
         for _ in 0..MAX_ITERATIONS {
             let dout = vec![EpsilonDelta {
                 epsilon: Q::from_internal(epsilon.clone()),
