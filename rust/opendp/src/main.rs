@@ -27,12 +27,12 @@ fn main(){
     println!("\n Find epsilon");
     let deltas = vec![0.0, 1. / 1000., 1. / 100., 1. / 10.];
     for delta in deltas {
-        println!("for delta = {}, epsilon = {:#?}", delta, predicate1.find_epsilon(&d_in, delta).unwrap().unwrap());
+        println!("for delta = {}, epsilon = {:#?}", delta, predicate1.find_epsilon(&d_in, delta).unwrap());
     }
     println!("\n Find delta");
     let epsilons = vec![1.2, 1., 0.8, 0.5, 0.2];
     for epsilon in epsilons {
-        println!("for epsilon = {}, delta = {:#?}", epsilon, predicate1.find_delta(&d_in, epsilon).unwrap().unwrap());
+        println!("for epsilon = {}, delta = {:#?}", epsilon, predicate1.find_delta(&d_in, epsilon).unwrap());
     }
 
     let scale2 = 1. / 1.5;
@@ -41,12 +41,12 @@ fn main(){
     println!("\n Find epsilon");
     let deltas = vec![0.0, 1. / 1000., 1. / 100., 1. / 10.];
     for delta in deltas {
-        println!("for delta = {}, epsilon = {:#?}", delta, predicate2.find_epsilon(&d_in, delta).unwrap().unwrap());
+        println!("for delta = {}, epsilon = {:#?}", delta, predicate2.find_epsilon(&d_in, delta).unwrap());
     }
     println!("\n Find delta");
     let epsilons = vec![1.2, 1., 0.8, 0.5, 0.2];
     for epsilon in epsilons {
-        println!("for epsilon = {}, delta = {:#?}", epsilon, predicate2.find_delta(&d_in, epsilon).unwrap().unwrap());
+        println!("for epsilon = {}, delta = {:#?}", epsilon, predicate2.find_delta(&d_in, epsilon).unwrap());
     }
 
     // Composition

@@ -346,7 +346,6 @@ impl ProbabilitiesLogRatios {
 
     pub fn to_alpha_beta_vec (&self) -> Vec<AlphaBeta> {
         let precision = &self.probabilities[0].prec();
-        let one: rug::Float = rug::Float::with_val(*precision, 1.);
         let zero: rug::Float = rug::Float::with_val(*precision, 0.);
 
         let mut vec_proba_log_ratio = self.to_proba_logratio_vec();
@@ -395,14 +394,17 @@ impl ProbabilitiesLogRatios {
 }
 
 
-fn compute_epsilon_delta <Q: CastInternalReal + Clone> (epsilon: Q, alphas_betas: &Vec<AlphaBeta>) -> EpsilonDelta<Q> {
+fn compute_epsilon_delta <Q: CastInternalReal + Clone> (
+    epsilon: Q,
+    alphas_betas: &Vec<AlphaBeta>
+) -> EpsilonDelta<Q> {
     let precision = alphas_betas[0].alpha.prec();
     let one: rug::Float = rug::Float::with_val(precision, 1.);
     let zero: rug::Float = rug::Float::with_val(precision, 0.);
 
     let mut delta = alphas_betas
         .iter()
-        .map(|AlphaBeta{alpha: alpha, beta: beta}| one.clone() - alpha.clone() * epsilon.clone().into_internal().exp() - beta.clone())
+        .map(|AlphaBeta{alpha: a, beta: b}| one.clone() - a.clone() * epsilon.clone().into_internal().exp() - b.clone())
         .max_by_key(|a| rug::float::OrdFloat::from(a.clone()))
         .unwrap();
 
@@ -467,8 +469,8 @@ pub fn find_epsilon_delta_from_relation <MI> (
 where MI: Metric,
       MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Copy{
     let delta_max = MI::Distance::from_internal(rug::Float::with_val(4, 1.0));
-    let max_epsilon_exp = relation.find_epsilon(&d_in, delta_min).unwrap().unwrap().into_internal().exp();
-    let min_epsilon_exp = relation.find_epsilon(&d_in, delta_max).unwrap().unwrap().into_internal().exp();
+    let max_epsilon_exp = relation.find_epsilon(&d_in, delta_min).unwrap().into_internal().exp();
+    let min_epsilon_exp = relation.find_epsilon(&d_in, delta_max).unwrap().into_internal().exp();
 
     let step = (max_epsilon_exp.clone() - min_epsilon_exp.clone()) / rug::Float::with_val(4, npoints - 1);
     (0..npoints)
@@ -477,7 +479,7 @@ where MI: Metric,
         ))
         .map(|eps| EpsilonDelta{
             epsilon: eps.clone(),
-            delta: relation.find_delta(&d_in, eps.clone()).unwrap().unwrap()
+            delta: relation.find_delta(&d_in, eps.clone()).unwrap()
         })
         .rev()
         .collect()
@@ -614,14 +616,6 @@ pub fn make_bounded_complexity_composition_multi<DI, DO, MI>(
         functions.push(measurement.function.clone());
         relations.push(measurement.privacy_relation.clone());
     }
-
-    let d_in = MI::Distance::from_internal(rug::Float::with_val(4, 1.0));
-    let d_out = vec![
-        EpsilonDelta {
-            epsilon: MI::Distance::from_internal(rug::Float::with_val(4, 2.5)),
-            delta: MI::Distance::from_internal(rug::Float::with_val(4, 0.0)),
-        },
-    ];
 
     Ok(Measurement::new(
         input_domain,

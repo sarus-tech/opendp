@@ -62,7 +62,7 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
      where MI: Metric,
            Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd + CastInternalReal {
 
-    pub fn find_epsilon (&self, d_in: &MI::Distance, delta: Q) -> Fallible<Option<Q>> {
+    pub fn find_epsilon (&self, d_in: &MI::Distance, delta: Q) -> Fallible<Q> {
         let mut eps_min:rug::Float = Q::zero().into_internal();
         let mut eps:rug::Float = Q::one().into_internal();
         let delta:rug::Float = delta.into_internal();
@@ -92,14 +92,14 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
                     eps_min = eps_mid.clone();
                 }
                 if eps <= tolerance.clone() + eps_min.clone() {
-                    return Ok(Some(Q::from_internal(eps)))
+                    return Ok(Q::from_internal(eps))
                 }
             }
         }
-        Ok(Some(Q::from_internal(eps)))
+        Ok(Q::from_internal(eps))
     }
 
-    pub fn find_delta (&self, d_in: &MI::Distance, epsilon: Q) -> Fallible<Option<Q>> {
+    pub fn find_delta (&self, d_in: &MI::Distance, epsilon: Q) -> Fallible<Q> {
         let mut delta_min:rug::Float = Q::zero().into_internal();
         let mut delta:rug::Float = Q::one().into_internal();
         let epsilon:rug::Float = epsilon.into_internal();
@@ -128,11 +128,11 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
                     delta_min = delta_mid.clone();
                 }
                 if delta <= tolerance.clone() + delta_min.clone() {
-                    return Ok(Some(Q::from_internal(delta)))
+                    return Ok(Q::from_internal(delta))
                 }
             }
         }
-        Ok(Some(Q::from_internal(delta)))
+        Ok(Q::from_internal(delta))
     }
 }
 
