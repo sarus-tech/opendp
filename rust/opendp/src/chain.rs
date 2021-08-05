@@ -485,29 +485,14 @@ where MI: Metric,
         .collect()
 }
 
-pub fn bounded_complexity_composition <MI: Metric>(
+pub fn alpha_beta_composition <MI: Metric>(
     relations: &Vec<PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>>,
-    d_in: &MI::Distance,
-    d_out: &Vec<EpsilonDelta<MI::Distance>>,
     npoints: u8,
     delta_min: MI::Distance,
-) -> Fallible<bool>
+) -> Vec<AlphaBeta>
     where MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Float + Debug {
     // For each relation, compute the (epsilon, delta) then the (alpha, beta) then the proba
     // then compose the probas
-    if d_in.is_sign_negative() {
-        return fallible!(InvalidDistance, "input sensitivity must be non-negative")
-    }
-
-    for EpsilonDelta { epsilon, delta } in d_out {
-        if epsilon.is_sign_negative() {
-            return fallible!(InvalidDistance, "epsilon must be positive or 0")
-        }
-        if delta.is_sign_negative() {
-            return fallible!(InvalidDistance, "delta must be positive or 0")
-        }
-    }
-
     let mut compo_log_proba: Vec<rug::Float> = Vec::new();
     let mut epsilons_max: Vec<rug::Float> = Vec::new();
 
@@ -518,7 +503,7 @@ pub fn bounded_complexity_composition <MI: Metric>(
             relation,
             npoints.clone(),
             delta_min.clone(),
-            d_in.clone()
+            MI::Distance::one()
         );
         epsilons_max.push(epsilon_deltas[0].epsilon.clone().into_internal());
 
@@ -546,7 +531,7 @@ pub fn bounded_complexity_composition <MI: Metric>(
     compo_proba_log_ratio.normalize();
 
     // convert the proba to (alpha, beta) then (epsilon, delta)
-    let alphas_betas_compo = compo_proba_log_ratio.to_alpha_beta_vec();
+    compo_proba_log_ratio.to_alpha_beta_vec()
 
     // (alpha, beta) -> npoints pairs (epsilon, delta)
     // let precision = alphas_betas_compo[0].alpha.prec();
@@ -565,17 +550,44 @@ pub fn bounded_complexity_composition <MI: Metric>(
     // let epsilons_deltas_compo = alphabeta_to_epsilondelta(alphas_betas_compo, epsilons);
     // println!("epsilons_deltas_compo = {:#?}", epsilons_deltas_compo);
 
-    // make the privacy relation
-    let mut result = true;
-    for EpsilonDelta { epsilon, delta } in d_out {
-        let delta_dual = compute_epsilon_delta(epsilon.clone(), &alphas_betas_compo).delta;
-        result = result & (delta >= &delta_dual);
-        if result == false {
-            return Ok(false)
-        }
-    }
-    Ok(true)
+
 }
+
+
+pub fn bounded_complexity_composition_privacy_relation <MI: Metric>(
+    relations: &Vec<PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>>,
+    npoints: u8,
+    delta_min: MI::Distance,
+) -> PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>
+    where MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Float + Debug {
+
+    let alphas_betas_compo = alpha_beta_composition(relations, npoints, delta_min);
+
+    PrivacyRelation::new_fallible(move |d_in: &MI::Distance, d_out: &Vec<EpsilonDelta<MI::Distance>>| {
+        if d_in.is_sign_negative() {
+            return fallible!(InvalidDistance, "input sensitivity must be non-negative")
+        }
+
+        let mut result = true;
+        for EpsilonDelta { epsilon, delta } in d_out {
+            if epsilon.is_sign_negative() {
+                return fallible!(InvalidDistance, "epsilon must be positive or 0")
+            }
+            if delta.is_sign_negative() {
+                return fallible!(InvalidDistance, "delta must be positive or 0")
+            }
+
+            let delta_dual = compute_epsilon_delta(epsilon.clone(), &alphas_betas_compo).delta;
+            result = result & (delta >= &delta_dual);
+            if result == false {
+                break;
+            }
+        }
+        Ok(result)
+    })
+}
+
+
 
 
 pub fn make_bounded_complexity_composition_multi<DI, DO, MI>(
@@ -617,6 +629,8 @@ pub fn make_bounded_complexity_composition_multi<DI, DO, MI>(
         relations.push(measurement.privacy_relation.clone());
     }
 
+    let privacy_relation = bounded_complexity_composition_privacy_relation(&relations, npoints, delta_min);
+
     Ok(Measurement::new(
         input_domain,
         VectorDomain::new(output_domain),
@@ -625,7 +639,7 @@ pub fn make_bounded_complexity_composition_multi<DI, DO, MI>(
         input_metric,
         output_measure.clone(),
         PrivacyRelation::new_fallible(move |d_in: &MI::Distance, d_out: &Vec<EpsilonDelta<MI::Distance>>| {
-            bounded_complexity_composition(&relations, d_in, d_out, npoints, delta_min)
+            Ok(true)
         })
     ))
 }
