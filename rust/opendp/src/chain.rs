@@ -236,7 +236,13 @@ pub fn make_basic_composition<DI, DO0, DO1, MI, MO>(measurement0: &Measurement<D
 
 // Bounded complexity composition
 #[derive(Debug)]
-pub struct ProbaLogRatio{pub proba: rug::Float, pub log_ratio: rug::Float}
+pub struct ProbabilityLogRatio{pub probability: rug::Float, pub logratio: rug::Float}
+
+impl Clone for ProbabilityLogRatio {
+    fn clone(&self) -> Self {
+        ProbabilityLogRatio {probability: self.probability.clone(), logratio: self.logratio.clone()}
+    }
+}
 
 #[derive(Debug)]
 pub struct ProbabilitiesLogRatios {
@@ -296,8 +302,8 @@ impl ProbabilitiesLogRatios {
         let logdensity = logdensity.iter()
             .map(|x| x - m.clone());
         let density: Vec<rug::Float> = logdensity.clone().map(|x| x.exp()).collect();
-        let ratios: Vec<rug::Float> = logdensity.clone().rev()
-            .zip(logdensity.clone())
+        let ratios: Vec<rug::Float> = logdensity.clone()
+            .zip(logdensity.clone().rev())
             .map(|(x, y)| x-y)
             .collect();
         Self::new(density, ratios)
@@ -311,53 +317,61 @@ impl ProbabilitiesLogRatios {
     pub fn normalize(&mut self) -> () {
         let precision = &self.probabilities[0].prec(); // TODO
 
+        //println!("sum1 : {:?}, {}", self.sum_probas(), self.len());
         let mut proba_log_ratio_vec = self.to_proba_logratio_vec();
-        proba_log_ratio_vec.sort_by(|a, b| a.log_ratio.partial_cmp(&b.log_ratio).unwrap());
+        proba_log_ratio_vec.sort_by(|a, b| a.logratio.partial_cmp(&b.logratio).unwrap());
         proba_log_ratio_vec.reverse();
+        //println!("proba_log_ratio_vec = {:?}", proba_log_ratio_vec.clone().iter().map(|x| x.logratio.clone()).collect::<Vec<rug::Float>>());
 
-        let mut current_ratio = proba_log_ratio_vec[0].log_ratio.clone();
+        let mut current_ratio = proba_log_ratio_vec[0].logratio.clone();
         let mut current_probas: Vec<rug::Float> = Vec::new();
-
         *self = Self::new_empty();
-
         for logratio_prob in &proba_log_ratio_vec {
-            if logratio_prob.log_ratio != current_ratio {
+            if logratio_prob.logratio != current_ratio {
                 self.push(
                     rug::Float::with_val(*precision, rug::Float::sum(current_probas.clone().iter())),
                     current_ratio
                 );
                 current_probas = Vec::new();
             }
-            current_probas.push(logratio_prob.proba.clone());
-            current_ratio = logratio_prob.log_ratio.clone();
+            current_probas.push(logratio_prob.probability.clone());
+            current_ratio = logratio_prob.logratio.clone();
         }
         self.push(
             rug::Float::with_val(*precision, rug::Float::sum(current_probas.clone().iter())),
             current_ratio
         );
+        //println!("sum2 : {:?}, {}", self.sum_probas(), self.len());
     }
 
-    pub fn to_proba_logratio_vec (&self) -> Vec<ProbaLogRatio> {
+    pub fn to_proba_logratio_vec (&self) -> Vec<ProbabilityLogRatio> {
         self.probabilities.clone().iter()
             .zip(self.logratios.clone().iter())
-            .map(|(p, r)| ProbaLogRatio{proba:p.clone(), log_ratio:r.clone()})
+            .map(|(p, r)| ProbabilityLogRatio{probability:p.clone(), logratio:r.clone()})
             .collect()
     }
 
     pub fn to_alpha_beta_vec (&self) -> Vec<AlphaBeta> {
         let precision = &self.probabilities[0].prec();
+        let one: rug::Float = rug::Float::with_val(*precision, 1.);
         let zero: rug::Float = rug::Float::with_val(*precision, 0.);
 
         let mut vec_proba_log_ratio = self.to_proba_logratio_vec();
-        vec_proba_log_ratio.sort_by(|a, b| a.log_ratio.partial_cmp(&b.log_ratio).unwrap());
+        //vec_proba_log_ratio.sort_by(|a, b| a.log_ratio.partial_cmp(&b.log_ratio).unwrap());
+
+        // println!("probas = {:?}", self.probabilities.clone());
+        // println!("logratio = {:?}", self.logratios.clone());
+        // println!("check sum: {:?}", self.sum_probas());
+        // println!("probas Q sum : {:?}", self.sum_probas_q());
 
         let mut alpha_beta_vec: Vec<AlphaBeta> = Vec::new();
+        alpha_beta_vec.push(AlphaBeta{alpha: zero.clone(), beta: one.clone()});
         for threshold in self.clone().logratios {
             let alpha = rug::Float::with_val(
                 *precision,
                 rug::Float::sum(
                     vec_proba_log_ratio.iter()
-                        .map(|ProbaLogRatio{proba:p, log_ratio:r}| {if r <= &threshold {p.clone()} else {zero.clone()}})
+                        .map(|ProbabilityLogRatio{probability:p, logratio:r}| {if r <= &threshold {p.clone()} else {zero.clone()}})
                         .collect::<Vec<rug::Float>>()
                         .iter()
                     )
@@ -367,11 +381,12 @@ impl ProbabilitiesLogRatios {
                 *precision,
                 rug::Float::sum(
                     vec_proba_log_ratio.iter()
-                        .map(|ProbaLogRatio{proba:p, log_ratio:r}| {if r > &threshold {p.clone() * (-r.clone()).exp()} else {zero.clone()}})
+                        .map(|ProbabilityLogRatio{probability:p, logratio:r}| {if r > &threshold {p.clone() * (-r.clone()).exp()} else {zero.clone()}})
                         .collect::<Vec<rug::Float>>()
                         .iter()
                     )
             );
+            //println!("threshold = {:?}, alpha = {:?}, beta = {:?}", threshold, alpha, beta);
             alpha_beta_vec.push(AlphaBeta{alpha: alpha, beta: beta});
         };
         alpha_beta_vec.sort_by(|a, b| a.alpha.partial_cmp(&b.alpha).unwrap());
@@ -391,6 +406,32 @@ impl ProbabilitiesLogRatios {
         Self::new(proba_vec, ratio_vec)
     }
 
+    pub fn len (&self) -> usize {
+        self.probabilities.clone().iter().len()
+    }
+
+    pub fn sum_probas (&self) -> rug::Float {
+        let precision = self.probabilities[0].clone().prec();
+        rug::Float::with_val(
+            precision,
+            rug::Float::sum(self.probabilities.clone().iter())
+        )
+    }
+
+    pub fn sum_probas_q (&self) -> rug::Float {
+        let precision = self.probabilities[0].clone().prec();
+        rug::Float::with_val(
+            precision,
+            rug::Float::sum(
+                self.probabilities.clone().iter()
+                    .zip(self.logratios.clone().iter())
+                    .map(|(p, logr)| p.clone() / logr.clone().exp())
+                    .collect::<Vec<rug::Float>>()
+                    .iter()
+            )
+        )
+    }
+
 }
 
 
@@ -407,6 +448,11 @@ fn compute_epsilon_delta <Q: CastInternalReal + Clone> (
         .map(|AlphaBeta{alpha: a, beta: b}| one.clone() - a.clone() * epsilon.clone().into_internal().exp() - b.clone())
         .max_by_key(|a| rug::float::OrdFloat::from(a.clone()))
         .unwrap();
+
+    let delta_list: Vec<rug::Float> = alphas_betas.iter()
+        .map(|AlphaBeta{alpha: a, beta: b}| one.clone() - a.clone() * epsilon.clone().into_internal().exp() - b.clone()).collect();
+    println!("epsilon {:?}, delta list = {:?}", epsilon.clone().into_internal(), delta_list);
+
 
     if delta < zero.clone() {
         delta = zero.clone();
@@ -509,9 +555,16 @@ pub fn alpha_beta_composition <MI: Metric>(
 
         // alphas, betas
         let alphas_betas = compute_alpha_beta(&epsilon_deltas);
+        let alphas: Vec<rug::Float> = alphas_betas.iter().map(|x| x.alpha.clone()).collect();
+        let betas: Vec<rug::Float> = alphas_betas.iter().map(|x| x.beta.clone()).collect();
+        //println!("alphas = {:#?}", alphas); // ok
+        //println!("betas = {:#?}", betas);
 
         // proba, log_ratio
-        let probas_log_ratios = ProbabilitiesLogRatios::from_alpha_beta_vec(&alphas_betas);
+        let mut probas_log_ratios = ProbabilitiesLogRatios::from_alpha_beta_vec(&alphas_betas);
+        probas_log_ratios.normalize();
+        println!("check sum: {:?}", probas_log_ratios.sum_probas());
+        println!("probas Q sum : {:?}", probas_log_ratios.sum_probas_q());
         let log_probas: Vec<rug::Float> = probas_log_ratios.probabilities.iter()
             .map(|x| x.clone().ln())
             .collect();
@@ -529,28 +582,11 @@ pub fn alpha_beta_composition <MI: Metric>(
     }
     let mut compo_proba_log_ratio = ProbabilitiesLogRatios::new_from_logproba(compo_log_proba);
     compo_proba_log_ratio.normalize();
+    println!("sum = {:?}", compo_proba_log_ratio.sum_probas());
+    println!("sum q = {:?}", compo_proba_log_ratio.sum_probas_q());
 
     // convert the proba to (alpha, beta) then (epsilon, delta)
     compo_proba_log_ratio.to_alpha_beta_vec()
-
-    // (alpha, beta) -> npoints pairs (epsilon, delta)
-    // let precision = alphas_betas_compo[0].alpha.prec();
-    // let max_epsilon_exp = rug::Float::with_val(
-    //     precision.clone(),
-    //     rug::Float::sum(epsilons_max.clone().iter())
-    // ).exp();
-    // let min_epsilon_exp = rug::Float::with_val(precision, 1.0);
-
-    // let step = (max_epsilon_exp.clone() - min_epsilon_exp.clone()) / rug::Float::with_val(precision, npoints - 1);
-    // let epsilons: Vec<MI::Distance> = (0..npoints)
-    //     .map(|i| MI::Distance::from_internal(
-    //         ((min_epsilon_exp.clone() + step.clone() * rug::Float::with_val(4, i)).ln())
-    //     ))
-    //     .collect();
-    // let epsilons_deltas_compo = alphabeta_to_epsilondelta(alphas_betas_compo, epsilons);
-    // println!("epsilons_deltas_compo = {:#?}", epsilons_deltas_compo);
-
-
 }
 
 
@@ -585,6 +621,39 @@ pub fn bounded_complexity_composition_privacy_relation <MI: Metric>(
         }
         Ok(result)
     })
+}
+
+pub fn compute_epsilon_delta_composition <MI: Metric>(
+    relations: &Vec<PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>>,
+    npoints: u8,
+    delta_min: MI::Distance,
+) -> Vec<EpsilonDelta<MI::Distance>>
+    where MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Float + Debug {
+
+    let alphas_betas_compo = alpha_beta_composition(relations, npoints, delta_min);
+    //println!("alphas_betas_comp = {:#?}", alphas_betas_compo.clone()[0]);
+    let alphas: Vec<rug::Float> = alphas_betas_compo.iter().map(|x| x.alpha.clone()).collect();
+    let betas: Vec<rug::Float> = alphas_betas_compo.iter().map(|x| x.beta.clone()).collect();
+    println!("Composition: ");
+    println!("alphas = {:?}", alphas);
+    println!("betas = {:?}", betas);
+
+
+    // (alpha, beta) -> npoints pairs (epsilon, delta)
+    let precision = alphas_betas_compo[0].alpha.prec();
+    let max_epsilon_exp = rug::Float::with_val(precision, 2.5).exp(); // TODO: set epsilon_max
+    let min_epsilon_exp = rug::Float::with_val(precision, 0.001).exp();
+
+    let step = (max_epsilon_exp.clone() - min_epsilon_exp.clone()) / rug::Float::with_val(precision, npoints - 1);
+    let epsilons: Vec<MI::Distance> = (0..npoints)
+        .map(|i| MI::Distance::from_internal(
+            ((min_epsilon_exp.clone() + step.clone() * rug::Float::with_val(4, i)).ln())
+        ))
+        .collect();
+    println!("epsilons = {:?}", epsilons);
+    let epsilons_deltas_compo = alphabeta_to_epsilondelta(alphas_betas_compo, epsilons);
+    println!("epsilons_deltas_compo = {:#?}", epsilons_deltas_compo);
+    epsilons_deltas_compo
 }
 
 
@@ -629,7 +698,9 @@ pub fn make_bounded_complexity_composition_multi<DI, DO, MI>(
         relations.push(measurement.privacy_relation.clone());
     }
 
+    let test = compute_epsilon_delta_composition(&relations, npoints, delta_min);
     let privacy_relation = bounded_complexity_composition_privacy_relation(&relations, npoints, delta_min);
+
 
     Ok(Measurement::new(
         input_domain,
