@@ -24,22 +24,23 @@ fn main(){
     ];
 
     println!("privacy_relation: {}", predicate1.eval(&d_in, &d_out).unwrap());
+    println!("\n Find epsilon");
+    let deltas = vec![0.0, 1. / 1000., 1. / 100., 1. / 10.];
+    for delta in deltas {
+        println!("for delta = {}, epsilon = {:#?}", delta, predicate1.find_epsilon(&d_in, delta).unwrap());
+    }
+    println!("\n Find delta");
+    let epsilons = vec![1.2, 1., 0.8, 0.5, 0.2];
+    for epsilon in epsilons {
+        println!("for epsilon = {}, delta = {:#?}", epsilon, predicate1.find_delta(&d_in, epsilon).unwrap());
+    }
+
     let eps_delta_family = predicate1.find_epsilon_delta_family(
         npoints.clone(),
         delta_min.clone(),
         d_in
     );
     println!("\n1. eps_delta_family: {:#?}", eps_delta_family);
-    // println!("\n Find epsilon");
-    // let deltas = vec![0.0, 1. / 1000., 1. / 100., 1. / 10.];
-    // for delta in deltas {
-    //     println!("for delta = {}, epsilon = {:#?}", delta, predicate1.find_epsilon(&d_in, delta).unwrap());
-    // }
-    // println!("\n Find delta");
-    // let epsilons = vec![1.2, 1., 0.8, 0.5, 0.2];
-    // for epsilon in epsilons {
-    //     println!("for epsilon = {}, delta = {:#?}", epsilon, predicate1.find_delta(&d_in, epsilon).unwrap());
-    // }
 
     let scale2:f64 = 1. / 1.5;
     let measurement2 = make_base_laplace::<AllDomain<f64>, FSmoothedMaxDivergence<f64>>(scale2).unwrap();
@@ -51,18 +52,18 @@ fn main(){
     );
     println!("\n2. eps_delta_family: {:#?}", eps_delta_family);
 
-    // println!("\n Find epsilon");
-    // let deltas = vec![0.0, 1. / 1000., 1. / 100., 1. / 10.];
-    // for delta in deltas {
-    //     println!("for delta = {}, epsilon = {:#?}", delta, predicate2.find_epsilon(&d_in, delta).unwrap());
-    // }
-    // println!("\n Find delta");
-    // let epsilons = vec![1.2, 1., 0.8, 0.5, 0.2];
-    // for epsilon in epsilons {
-    //     println!("for epsilon = {}, delta = {:#?}", epsilon, predicate2.find_delta(&d_in, epsilon).unwrap());
-    // }
+    println!("\n Find epsilon");
+    let deltas = vec![0.0, 1. / 1000., 1. / 100., 1. / 10.];
+    for delta in deltas {
+        println!("for delta = {}, epsilon = {:#?}", delta, predicate2.find_epsilon(&d_in, delta).unwrap());
+    }
+    println!("\n Find delta");
+    let epsilons = vec![1.2, 1., 0.8, 0.5, 0.2];
+    for epsilon in epsilons {
+        println!("for epsilon = {}, delta = {:#?}", epsilon, predicate2.find_delta(&d_in, epsilon).unwrap());
+    }
 
-    // Composition
+    //Composition
     let composition = make_bounded_complexity_composition(
         &measurement1,
         &measurement2,
@@ -98,60 +99,30 @@ fn main(){
     );
     println!("\neps_delta_family: {:#?}", eps_delta_family);
 
-
-    // Laplace with FSmoothedMaxDivergence
-    // println!("\nLaplace with FSmoothedMaxDivergence");
-    // let scale = 1.0;
-    // let measurement = make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(scale).unwrap();
-    // let predicate = measurement.privacy_relation;
-    // let d_in = 1.0;
-    // let d_out = vec![
-    //     EpsilonDelta { epsilon: 1., delta: 0.0 },
-    //     EpsilonDelta { epsilon: 0.75, delta: 0.12 },
-    //     EpsilonDelta { epsilon: 0.5, delta: 0.23 },
-    //     EpsilonDelta { epsilon: 0.25, delta: 0.32 },
-    //     EpsilonDelta { epsilon: 0., delta: 0.4 }
-    // ];
-    // println!("privacy_relation: {}", predicate.eval(&d_in, &d_out).unwrap());
-    // let delta = 0.23;
-    // println!("delta = {}, find epsilon: {:#?}", delta, predicate.find_epsilon(&d_in, delta).unwrap().unwrap());
-    // let epsilon = 0.;
-    // println!("epsilon = {}, find delta: {:#?}", epsilon, predicate.find_delta(&d_in, epsilon).unwrap().unwrap());
-
-    // let epsilons: Vec<f32> = vec![0.1, 0.2, 0.5, 1.];
-    // let epsilon_deltas: Vec<EpsilonDelta<f32>> = epsilons.iter()
-    //     .map(|eps| EpsilonDelta{ epsilon: *eps, delta: predicate.find_delta(&d_in, *eps).unwrap().unwrap()})
-    //     .collect();
-    // println!("epsilons_deltas = {:#?}", epsilon_deltas);
-
-    // // Compute alpha beta
-    // let alphas_betas = compute_alpha_beta(&epsilon_deltas);
-    // println!("alphas_betas = {:#?}", alphas_betas);
-    // // Compute probas
-    // let probas = compute_adjacent_probabilities(&alphas_betas);
-    // println!("probas = {:#?}", probas);
-
-
-    // // Gaussian with FSmoothedMaxDivergence
-    // println!("\nGaussian with FSmoothedMaxDivergence");
-    // let scale = 1.0;
-    // let measurement = make_base_gaussian::<AllDomain<_>, FSmoothedMaxDivergence<_>>(scale).unwrap();
-    // let predicate = measurement.privacy_relation.clone();
-    // let d_in = 1.0;
-    // let d_out = vec![
-    //     EpsilonDelta { epsilon: 0.25, delta: 0.32 },
-    //     EpsilonDelta { epsilon: 0.5, delta: 0.23 },
-    //     EpsilonDelta { epsilon: 0.75, delta: 0.12 },
-    // ];
-    // println!("privacy_relation: {}", predicate.eval(&d_in, &d_out).unwrap());
-    // //let delta = 0.23;
-    // //println!("delta = {}, find epsilon: {:#?}", delta, predicate.find_epsilon(&d_in, delta).unwrap().unwrap());
-    // //let epsilon = 0.;
-    // //println!("epsilon = {}, find delta: {:#?}", epsilon, predicate.find_delta(&d_in, epsilon).unwrap().unwrap());
-    // let relations = vec![measurement.privacy_relation.clone(), measurement.privacy_relation.clone()];
-
-    // let compo = bounded_complexity_composition(&relations, &d_in, &d_out);
-    // println!("compo = {:?}", compo);
+    println!("\n================\nTests\n================\n");
+    let npoints: u8 = 5;
+    let delta_min = 0.00000000001;
+    let measurements = vec![
+            make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(0.).unwrap(),
+            make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(0.).unwrap()
+        ];
+        let composition = make_bounded_complexity_composition_multi(
+            &measurements.iter().collect(),
+            npoints,
+            delta_min,
+        ).unwrap();
+        let d_out = vec![
+            EpsilonDelta { epsilon: 2., delta: delta_min.clone()},
+        ];
+        println!("{}", composition.privacy_relation.eval(&1., &d_out).unwrap());
+        let d_out = vec![
+            EpsilonDelta { epsilon: 2.0001, delta: delta_min.clone()},
+        ];
+        println!("{}", composition.privacy_relation.eval(&1., &d_out).unwrap());
+        let d_out = vec![
+            EpsilonDelta { epsilon: 1.5, delta: delta_min.clone()},
+        ];
+        println!("{}", composition.privacy_relation.eval(&1., &d_out).unwrap());
 
     if false {
         // make_basic_composition_multi

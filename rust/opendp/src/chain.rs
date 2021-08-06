@@ -256,6 +256,12 @@ impl Clone for ProbabilitiesLogRatios {
     }
 }
 
+impl PartialEq for ProbabilitiesLogRatios {
+    fn eq(&self, other: &Self) -> bool {
+        self.probabilities == other.probabilities && self.logratios == other.logratios
+    }
+}
+
 impl ProbabilitiesLogRatios {
 
     pub fn new_empty () -> Self {
@@ -315,8 +321,7 @@ impl ProbabilitiesLogRatios {
     }
 
     pub fn normalize(&mut self) -> () {
-        let precision = &self.probabilities[0].prec(); // TODO
-
+        let precision = &self.probabilities[0].prec();
         let mut proba_log_ratio_vec = self.to_proba_logratio_vec();
         proba_log_ratio_vec.sort_by(|a, b| a.logratio.partial_cmp(&b.logratio).unwrap());
         proba_log_ratio_vec.reverse();
@@ -396,7 +401,7 @@ impl ProbabilitiesLogRatios {
     }
 
     pub fn from_relation <MI: Metric> (
-        relation: PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>,
+        relation: &PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>,
         npoints: u8,
         delta_min: MI::Distance,
     ) -> Self
@@ -408,6 +413,13 @@ impl ProbabilitiesLogRatios {
             delta_min.clone(),
             MI::Distance::one()
         );
+
+        if epsilon_deltas == vec![EpsilonDelta{
+            epsilon: MI::Distance::from_internal(rug::Float::with_val(5, 1. / 0.)),
+            delta: MI::Distance::one(),
+        }] {
+            return Self::new_empty()
+        }
 
         let alphas_betas_vec =  TradeoffFunc::from_epsilon_delta_vec(&epsilon_deltas).to_alpha_beta_vec();
         let mut probas_log_ratios = ProbabilitiesLogRatios::from_alpha_beta_vec(&alphas_betas_vec);
@@ -573,8 +585,14 @@ pub fn bounded_complexity_composition_privacy_relation <MI: Metric>(
 ) -> PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>
     where MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Float + Debug {
 
-    let proba_log_ratio1 = ProbabilitiesLogRatios::from_relation(relation1, npoints.clone(), delta_min.clone());
-    let proba_log_ratio2 = ProbabilitiesLogRatios::from_relation(relation2, npoints.clone(), delta_min.clone());
+    let proba_log_ratio1 = ProbabilitiesLogRatios::from_relation(&relation1, npoints.clone(), delta_min.clone());
+    if proba_log_ratio1 == ProbabilitiesLogRatios::new_empty() {
+        return relation2.clone()
+    }
+    let proba_log_ratio2 = ProbabilitiesLogRatios::from_relation(&relation2, npoints.clone(), delta_min.clone());
+    if proba_log_ratio2 == ProbabilitiesLogRatios::new_empty() {
+        return relation1.clone()
+    }
     let compo_proba_log_ratio = proba_log_ratio1.compose(proba_log_ratio2);
 
     let alphas_betas_compo = TradeoffFunc::from_alpha_beta_vec(compo_proba_log_ratio.to_alpha_beta_vec());
@@ -792,8 +810,8 @@ mod tests {
     #[test]
     fn test_make_basic_composition_multi() -> Fallible<()> {
         let measurements = vec![
-            make_base_laplace::<AllDomain<_>>(0.)?,
-            make_base_laplace(0.)?
+            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(0.)?,
+            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(0.)?
         ];
         let composition = make_basic_composition_multi(&measurements.iter().collect())?;
         let arg = 99.;
@@ -803,8 +821,8 @@ mod tests {
         assert_eq!(ret, vec![99., 99.]);
 
         let measurements = vec![
-            make_base_laplace::<AllDomain<_>>(1.)?,
-            make_base_laplace(1.)?
+            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(1.)?,
+            make_base_laplace::<AllDomain<_>, MaxDivergence<_>>(1.)?
         ];
         let composition = make_basic_composition_multi(&measurements.iter().collect())?;
         // runs once because it sits on a power of 2
@@ -815,6 +833,40 @@ mod tests {
         assert!(!composition.privacy_relation.eval(&1., &1.999)?);
         Ok(())
     }
+
+    #[test]
+    fn test_make_bounded_complexity_composition_multi() -> Fallible<()> {
+        let npoints: u8 = 5;
+        let delta_min = 0.00000000001;
+
+        let measurements = vec![
+            make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(0.)?,
+            make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(0.)?
+        ];
+        let composition = make_bounded_complexity_composition_multi(&measurements.iter().collect(), npoints, delta_min)?;
+        let arg = 99.;
+        let ret = composition.function.eval(&arg)?;
+
+        assert_eq!(ret.len(), 2);
+        assert_eq!(ret, vec![99., 99.]);
+
+        let measurements = vec![
+            make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(1.)?,
+            make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(1.)?
+        ];
+        let composition = make_bounded_complexity_composition_multi(&measurements.iter().collect(), npoints, delta_min)?;
+        // runs once because it sits on a power of 2
+        let d_out = vec![EpsilonDelta { epsilon: 2., delta: delta_min.clone()}];
+        assert!(composition.privacy_relation.eval(&1., &d_out)?);
+        // runs a few steps- it will tighten to within TOLERANCE of 1 on the first measurement
+        let d_out = vec![EpsilonDelta { epsilon: 2.0001, delta: delta_min.clone()}];
+        assert!(composition.privacy_relation.eval(&1., &d_out)?);
+        // should fail
+        let d_out = vec![EpsilonDelta { epsilon: 1.5, delta: delta_min.clone()}];
+        assert!(!composition.privacy_relation.eval(&1., &d_out)?);
+        Ok(())
+    }
+
 }
 
 
