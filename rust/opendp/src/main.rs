@@ -1,18 +1,18 @@
 use opendp::dist::{FSmoothedMaxDivergence, MaxDivergence, EpsilonDelta};
 use opendp::dom::AllDomain;
 use opendp::chain::*;
-use opendp::meas::make_base_laplace;
+use opendp::meas::{make_base_laplace, make_base_gaussian};
 
 
 
 fn main(){
     let npoints: u8 = 9;
-    let delta_min = 0.00000000001;
+    let delta_min = 0.0001;
 
     // Laplace with FSmoothedMaxDivergence
     println!("\nLaplace with FSmoothedMaxDivergence");
     let scale1:f64 = 1.0;
-    let measurement1 = make_base_laplace::<AllDomain<f64>, FSmoothedMaxDivergence<f64>>(scale1).unwrap();
+    let measurement1 = make_base_gaussian::<AllDomain<f64>, FSmoothedMaxDivergence<f64>>(scale1).unwrap();
     let predicate1 = measurement1.privacy_relation.clone();
     let d_in = 1.0;
     let d_out = vec![
@@ -43,7 +43,7 @@ fn main(){
     println!("\n1. eps_delta_family: {:#?}", eps_delta_family);
 
     let scale2:f64 = 1. / 1.5;
-    let measurement2 = make_base_laplace::<AllDomain<f64>, FSmoothedMaxDivergence<f64>>(scale2).unwrap();
+    let measurement2 = make_base_gaussian::<AllDomain<f64>, FSmoothedMaxDivergence<f64>>(scale2).unwrap();
     let predicate2 = measurement2.privacy_relation.clone();
     let eps_delta_family = predicate2.find_epsilon_delta_family(
         npoints.clone(),
@@ -81,48 +81,48 @@ fn main(){
     );
     println!("\neps_delta_family: {:#?}", eps_delta_family);
 
-    // Composition with multi
-    let measurements = vec![&measurement1, &measurement2];
-    let composition = make_bounded_complexity_composition_multi(
-        &measurements,
-        npoints,
-        delta_min,
-    ).unwrap();
-    let d_out = vec![
-        EpsilonDelta { epsilon: 3., delta: delta_min.clone()},
-    ];
-    println!("\n\nprivacy_relation: {}", composition.privacy_relation.eval(&d_in, &d_out).unwrap());
-    let eps_delta_family = composition.privacy_relation.find_epsilon_delta_family(
-        npoints.clone(),
-        delta_min.clone(),
-        d_in
-    );
-    println!("\neps_delta_family: {:#?}", eps_delta_family);
+    // // Composition with multi
+    // let measurements = vec![&measurement1, &measurement2];
+    // let composition = make_bounded_complexity_composition_multi(
+    //     &measurements,
+    //     npoints,
+    //     delta_min,
+    // ).unwrap();
+    // let d_out = vec![
+    //     EpsilonDelta { epsilon: 3., delta: delta_min.clone()},
+    // ];
+    // println!("\n\nprivacy_relation: {}", composition.privacy_relation.eval(&d_in, &d_out).unwrap());
+    // let eps_delta_family = composition.privacy_relation.find_epsilon_delta_family(
+    //     npoints.clone(),
+    //     delta_min.clone(),
+    //     d_in
+    // );
+    // println!("\neps_delta_family: {:#?}", eps_delta_family);
 
-    println!("\n================\nTests\n================\n");
-    let npoints: u8 = 5;
-    let delta_min = 0.00000000001;
-    let measurements = vec![
-            make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(0.).unwrap(),
-            make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(0.).unwrap()
-        ];
-        let composition = make_bounded_complexity_composition_multi(
-            &measurements.iter().collect(),
-            npoints,
-            delta_min,
-        ).unwrap();
-        let d_out = vec![
-            EpsilonDelta { epsilon: 2., delta: delta_min.clone()},
-        ];
-        println!("{}", composition.privacy_relation.eval(&1., &d_out).unwrap());
-        let d_out = vec![
-            EpsilonDelta { epsilon: 2.0001, delta: delta_min.clone()},
-        ];
-        println!("{}", composition.privacy_relation.eval(&1., &d_out).unwrap());
-        let d_out = vec![
-            EpsilonDelta { epsilon: 1.5, delta: delta_min.clone()},
-        ];
-        println!("{}", composition.privacy_relation.eval(&1., &d_out).unwrap());
+    // println!("\n================\nTests\n================\n");
+    // let npoints: u8 = 5;
+    // let delta_min = 0.00000000001;
+    // let measurements = vec![
+    //         make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(0.).unwrap(),
+    //         make_base_laplace::<AllDomain<_>, FSmoothedMaxDivergence<_>>(0.).unwrap()
+    //     ];
+    //     let composition = make_bounded_complexity_composition_multi(
+    //         &measurements.iter().collect(),
+    //         npoints,
+    //         delta_min,
+    //     ).unwrap();
+    //     let d_out = vec![
+    //         EpsilonDelta { epsilon: 2., delta: delta_min.clone()},
+    //     ];
+    //     println!("{}", composition.privacy_relation.eval(&1., &d_out).unwrap());
+    //     let d_out = vec![
+    //         EpsilonDelta { epsilon: 2.0001, delta: delta_min.clone()},
+    //     ];
+    //     println!("{}", composition.privacy_relation.eval(&1., &d_out).unwrap());
+    //     let d_out = vec![
+    //         EpsilonDelta { epsilon: 1.5, delta: delta_min.clone()},
+    //     ];
+    //     println!("{}", composition.privacy_relation.eval(&1., &d_out).unwrap());
 
     if false {
         // make_basic_composition_multi

@@ -65,12 +65,6 @@ fn compute_dual_epsilon_delta_laplace<Q: 'static + Float + Clone + CastInternalR
     }
 }
 
-// fn find_delta_laplace(scale: MI::Distance, d_in: &MI::Distance, epsilon: rug::Float) -> rug::Float {
-//     let epsilon = MI::Distance::from_internal(epsilon);
-//     let delta = compute_dual_epsilon_delta_laplace(scale, epsilon);
-//     delta.into_internal()
-// }
-
 use std::fmt::Debug;// TODO: rm debug
 //#[cfg(feature="use-mpfr")]
 impl<MI: Metric> LaplacePrivacyRelation<MI> for FSmoothedMaxDivergence<MI::Distance>

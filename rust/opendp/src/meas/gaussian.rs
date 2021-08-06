@@ -1,4 +1,5 @@
 use num::{Float, One, Zero};
+use statrs::distribution::{Normal, Univariate};
 
 use crate::core::{Function, Measure, Measurement, Metric, PrivacyRelation, Domain, SensitivityMetric};
 use crate::dist::{L2Distance, SmoothedMaxDivergence, AbsoluteDistance, EpsilonDelta, FSmoothedMaxDivergence};
@@ -71,17 +72,15 @@ impl<MI: Metric> GaussianPrivacyRelation<MI> for SmoothedMaxDivergence<MI::Dista
     }
 }
 
-fn compute_dual_epsilon_delta_gaussian<Q: 'static + Float + Clone + CastInternalReal > (scale: Q, epsilon: Q) -> EpsilonDelta<Q> { // implement trait
-    use rug::float::Round;
-    let mut scale_float: rug::Float = scale.clone().into_internal();
-    scale_float.recip_round(Round::Up); // scale_float -> 1 / scale_float
-    let epsilon_float: rug::Float = epsilon.clone().into_internal();
-    let mut res = (epsilon_float - scale_float) / (2.).into_internal();
-    res.exp_round(Round::Down); // res =  exp((epsilon - 1 / scale) / 2)
-    let delta = Q::one() - Q::from_internal(res); // delta = 1 - exp((epsilon - 1 / scale) / 2)
+fn compute_dual_epsilon_delta_gaussian<Q: 'static + Float + Clone + CastInternalReal + One + Zero > (scale: Q, epsilon: Q) -> EpsilonDelta<Q> { // implement trait
+    let scale_f64 = scale.clone().into_internal().to_f64();
+    let epsilon_f64 = epsilon.clone().into_internal().to_f64();
+
+    let normal_distr = Normal::new(0.0, scale_f64).unwrap();
+    let delta:f64 = normal_distr.cdf(- epsilon_f64 / scale_f64 + scale_f64 / 2.0) - epsilon_f64.exp() * normal_distr.cdf(- epsilon_f64 / scale_f64 - scale_f64 / 2.0);
     EpsilonDelta {
         epsilon: epsilon,
-        delta: delta,
+        delta: Q::from_internal(rug::Float::with_val(53, delta)),
     }
 }
 
