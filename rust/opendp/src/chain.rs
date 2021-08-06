@@ -317,11 +317,9 @@ impl ProbabilitiesLogRatios {
     pub fn normalize(&mut self) -> () {
         let precision = &self.probabilities[0].prec(); // TODO
 
-        //println!("sum1 : {:?}, {}", self.sum_probas(), self.len());
         let mut proba_log_ratio_vec = self.to_proba_logratio_vec();
         proba_log_ratio_vec.sort_by(|a, b| a.logratio.partial_cmp(&b.logratio).unwrap());
         proba_log_ratio_vec.reverse();
-        //println!("proba_log_ratio_vec = {:?}", proba_log_ratio_vec.clone().iter().map(|x| x.logratio.clone()).collect::<Vec<rug::Float>>());
 
         let mut current_ratio = proba_log_ratio_vec[0].logratio.clone();
         let mut current_probas: Vec<rug::Float> = Vec::new();
@@ -341,7 +339,6 @@ impl ProbabilitiesLogRatios {
             rug::Float::with_val(*precision, rug::Float::sum(current_probas.clone().iter())),
             current_ratio
         );
-        //println!("sum2 : {:?}, {}", self.sum_probas(), self.len());
     }
 
     pub fn to_proba_logratio_vec (&self) -> Vec<ProbabilityLogRatio> {
@@ -356,14 +353,7 @@ impl ProbabilitiesLogRatios {
         let one: rug::Float = rug::Float::with_val(*precision, 1.);
         let zero: rug::Float = rug::Float::with_val(*precision, 0.);
 
-        let mut vec_proba_log_ratio = self.to_proba_logratio_vec();
-        //vec_proba_log_ratio.sort_by(|a, b| a.log_ratio.partial_cmp(&b.log_ratio).unwrap());
-
-        // println!("probas = {:?}", self.probabilities.clone());
-        // println!("logratio = {:?}", self.logratios.clone());
-        // println!("check sum: {:?}", self.sum_probas());
-        // println!("probas Q sum : {:?}", self.sum_probas_q());
-
+        let vec_proba_log_ratio = self.to_proba_logratio_vec();
         let mut alpha_beta_vec: Vec<AlphaBeta> = Vec::new();
         alpha_beta_vec.push(AlphaBeta{alpha: zero.clone(), beta: one.clone()});
         for threshold in self.clone().logratios {
@@ -386,7 +376,6 @@ impl ProbabilitiesLogRatios {
                         .iter()
                     )
             );
-            //println!("threshold = {:?}, alpha = {:?}, beta = {:?}", threshold, alpha, beta);
             alpha_beta_vec.push(AlphaBeta{alpha: alpha, beta: beta});
         };
         alpha_beta_vec.sort_by(|a, b| a.alpha.partial_cmp(&b.alpha).unwrap());
@@ -538,12 +527,6 @@ impl TradeoffFunc {
         }
     }
 
-    fn to_epsilon_delta_vec <Q: CastInternalReal + Clone> (&self, epsilons: Vec<Q>) -> Vec<EpsilonDelta<Q>> {
-        epsilons.iter()
-            .map(|eps| self.to_epsilon_delta(eps.clone()))
-            .collect::<Vec<EpsilonDelta<Q>>>()
-    }
-
     pub fn compose_relations <MI: Metric>(
         relations: &Vec<PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>>,
         npoints: u8,
@@ -556,9 +539,7 @@ impl TradeoffFunc {
         let mut epsilons_max: Vec<rug::Float> = Vec::new();
 
         for relation in relations {
-            // epsilons, deltas
-            let epsilon_deltas = find_epsilon_delta_from_relation(
-                relation,
+            let epsilon_deltas = relation.find_epsilon_delta_family(
                 npoints.clone(),
                 delta_min.clone(),
                 MI::Distance::one()
@@ -592,35 +573,6 @@ impl TradeoffFunc {
     }
 }
 
-
-pub fn find_epsilon_delta_from_relation <MI> (
-    relation: &PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>,
-    npoints: u8,
-    delta_min: MI::Distance,
-    d_in: MI::Distance
-) -> Vec<EpsilonDelta<MI::Distance>>
-where MI: Metric,
-      MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Copy{
-    let delta_max = MI::Distance::from_internal(rug::Float::with_val(4, 1.0));
-    let max_epsilon_exp = relation.find_epsilon(&d_in, delta_min).unwrap().into_internal().exp();
-    let min_epsilon_exp = relation.find_epsilon(&d_in, delta_max).unwrap().into_internal().exp();
-
-    let step = (max_epsilon_exp.clone() - min_epsilon_exp.clone()) / rug::Float::with_val(4, npoints - 1);
-    (0..npoints)
-        .map(|i| MI::Distance::from_internal(
-            (min_epsilon_exp.clone() + step.clone() * rug::Float::with_val(4, i)).ln()
-        ))
-        .map(|eps| EpsilonDelta{
-            epsilon: eps.clone(),
-            delta: relation.find_delta(&d_in, eps.clone()).unwrap()
-        })
-        .rev()
-        .collect()
-}
-
-
-
-
 pub fn bounded_complexity_composition_privacy_relation <MI: Metric>(
     relations: &Vec<PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>>,
     npoints: u8,
@@ -653,42 +605,6 @@ pub fn bounded_complexity_composition_privacy_relation <MI: Metric>(
         Ok(result)
     })
 }
-
-pub fn compute_epsilon_delta_composition <MI: Metric>(
-    relations: &Vec<PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>>,
-    npoints: u8,
-    delta_min: MI::Distance,
-) -> Vec<EpsilonDelta<MI::Distance>>
-    where MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Float + Debug {
-
-    let alphas_betas_compo = TradeoffFunc::compose_relations(relations, npoints, delta_min);
-    //println!("alphas_betas_comp = {:#?}", alphas_betas_compo.clone()[0]);
-    // let alphas: Vec<rug::Float> = alphas_betas_compo.iter().map(|x| x.alpha.clone()).collect();
-    // let betas: Vec<rug::Float> = alphas_betas_compo.iter().map(|x| x.beta.clone()).collect();
-    // println!("Composition: ");
-    // println!("alphas = {:?}", alphas);
-    // println!("betas = {:?}", betas);
-
-
-    // (alpha, beta) -> npoints pairs (epsilon, delta)
-    let precision = alphas_betas_compo.alphas[0].prec();
-    let max_epsilon_exp = rug::Float::with_val(precision, 2.5).exp(); // TODO: set epsilon_max
-    let min_epsilon_exp = rug::Float::with_val(precision, 0.001).exp();
-
-    let step = (max_epsilon_exp.clone() - min_epsilon_exp.clone()) / rug::Float::with_val(precision, npoints - 1);
-    let epsilons: Vec<MI::Distance> = (0..npoints)
-        .map(|i| MI::Distance::from_internal(
-            (min_epsilon_exp.clone() + step.clone() * rug::Float::with_val(4, i)).ln()
-        ))
-        .collect();
-    println!("epsilons = {:?}", epsilons);
-    let epsilons_deltas_compo = alphas_betas_compo.to_epsilon_delta_vec(epsilons);
-    println!("epsilons_deltas_compo = {:#?}", epsilons_deltas_compo);
-    epsilons_deltas_compo
-}
-
-
-
 
 pub fn make_bounded_complexity_composition_multi<DI, DO, MI>(
     measurements: &Vec<&Measurement<DI, DO, MI, FSmoothedMaxDivergence<MI::Distance>>>,
@@ -729,10 +645,6 @@ pub fn make_bounded_complexity_composition_multi<DI, DO, MI>(
         relations.push(measurement.privacy_relation.clone());
     }
 
-    let test = compute_epsilon_delta_composition(&relations, npoints, delta_min);
-    let privacy_relation = bounded_complexity_composition_privacy_relation(&relations, npoints, delta_min);
-
-
     Ok(Measurement::new(
         input_domain,
         VectorDomain::new(output_domain),
@@ -740,9 +652,7 @@ pub fn make_bounded_complexity_composition_multi<DI, DO, MI>(
             functions.iter().map(|f| f.eval(arg)).collect()),
         input_metric,
         output_measure.clone(),
-        PrivacyRelation::new_fallible(move |d_in: &MI::Distance, d_out: &Vec<EpsilonDelta<MI::Distance>>| {
-            Ok(true)
-        })
+        bounded_complexity_composition_privacy_relation(&relations, npoints, delta_min),
     ))
 }
 
