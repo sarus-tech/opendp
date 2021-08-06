@@ -63,9 +63,27 @@ fn main(){
     // }
 
     // Composition
-    let measurements = vec![measurement1, measurement2];
+    let composition = make_bounded_complexity_composition(
+        &measurement1,
+        &measurement2,
+        npoints,
+        delta_min,
+    ).unwrap();
+    let d_out = vec![
+        EpsilonDelta { epsilon: 3., delta: delta_min.clone()},
+    ];
+    println!("\n\nprivacy_relation: {}", composition.privacy_relation.eval(&d_in, &d_out).unwrap());
+    let eps_delta_family = composition.privacy_relation.find_epsilon_delta_family(
+        npoints.clone(),
+        delta_min.clone(),
+        d_in
+    );
+    println!("\neps_delta_family: {:#?}", eps_delta_family);
+
+    // Composition with multi
+    let measurements = vec![&measurement1, &measurement2];
     let composition = make_bounded_complexity_composition_multi(
-        &measurements.iter().collect(),
+        &measurements,
         npoints,
         delta_min,
     ).unwrap();

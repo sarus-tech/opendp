@@ -395,11 +395,13 @@ impl ProbabilitiesLogRatios {
         Self::new(proba_vec, ratio_vec)
     }
 
-    pub fn from_relation <MI> (
+    pub fn from_relation <MI: Metric> (
         relation: PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>,
         npoints: u8,
         delta_min: MI::Distance,
-    ) -> Self {
+    ) -> Self
+    where MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Copy + Float + Debug
+    {
 
         let epsilon_deltas = relation.find_epsilon_delta_family(
             npoints.clone(),
@@ -407,7 +409,7 @@ impl ProbabilitiesLogRatios {
             MI::Distance::one()
         );
 
-        let alphas_betas_vec =  Self::from_epsilon_delta_vec(&epsilon_deltas).to_alpha_beta_vec();
+        let alphas_betas_vec =  TradeoffFunc::from_epsilon_delta_vec(&epsilon_deltas).to_alpha_beta_vec();
         let mut probas_log_ratios = ProbabilitiesLogRatios::from_alpha_beta_vec(&alphas_betas_vec);
         probas_log_ratios.normalize();
         probas_log_ratios
@@ -561,88 +563,6 @@ impl TradeoffFunc {
             delta: Q::from_internal(delta),
         }
     }
-
-    pub fn compose_relations <MI: Metric>(
-        relation1: PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>,
-        relation2: PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>,
-        npoints: u8,
-        delta_min: MI::Distance,
-    ) -> Self
-        where MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Float + Debug {
-        // For each relation, compute the (epsilon, delta) then the (alpha, beta) then the proba
-        // then compose the probas
-        let mut compo_log_proba: Vec<rug::Float> = Vec::new();
-        let mut epsilons_max: Vec<rug::Float> = Vec::new();
-
-        for relation in relations {
-            let epsilon_deltas = relation.find_epsilon_delta_family(
-                npoints.clone(),
-                delta_min.clone(),
-                MI::Distance::one()
-            );
-            epsilons_max.push(epsilon_deltas[0].epsilon.clone().into_internal());
-
-            // alphas, betas
-            let alphas_betas_vec =  Self::from_epsilon_delta_vec(&epsilon_deltas).to_alpha_beta_vec();
-
-            // proba, log_ratio
-            let mut probas_log_ratios = ProbabilitiesLogRatios::from_alpha_beta_vec(&alphas_betas_vec);
-            probas_log_ratios.normalize();
-            let log_probas: Vec<rug::Float> = probas_log_ratios.probabilities.iter()
-                .map(|x| x.clone().ln())
-                .collect();
-            if compo_log_proba.iter().len() == 0 {
-                compo_log_proba = log_probas.clone();
-            } else {
-                let mut new_compo_log_proba: Vec<rug::Float> = Vec::new();
-                for log_prob1 in &compo_log_proba {
-                    for log_prob2 in &log_probas {
-                        new_compo_log_proba.push(log_prob1.clone() + log_prob2.clone());
-                    }
-                }
-                compo_log_proba = new_compo_log_proba;
-            }
-        }
-        let mut compo_proba_log_ratio = ProbabilitiesLogRatios::new_from_logproba(compo_log_proba);
-        compo_proba_log_ratio.normalize();
-        Self::from_alpha_beta_vec(compo_proba_log_ratio.to_alpha_beta_vec())
-    }
-
-    pub fn compose_relations <MI: Metric>(
-        relation1: PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>,
-        relation2: PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>,
-        npoints: u8,
-        delta_min: MI::Distance,
-    ) -> Self
-        where MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Float + Debug {
-        // For each relation, compute the (epsilon, delta) then the (alpha, beta) then the proba
-        // then compose the probas
-
-        let probas_log_ratios1 = ProbabilitiesLogRatios::from_relation(relation1);
-        let probas_log_ratios2 = ProbabilitiesLogRatios::from_relation(relation2);
-        let compo_proba_log_ratio = ProbabilitiesLogRatios::compose(probas_log_ratios1, probas_log_ratios2);
-        Self::from_alpha_beta_vec(compo_proba_log_ratio.to_alpha_beta_vec())
-
-
-            let log_probas: Vec<rug::Float> = probas_log_ratios.probabilities.iter()
-                .map(|x| x.clone().ln())
-                .collect();
-            if compo_log_proba.iter().len() == 0 {
-                compo_log_proba = log_probas.clone();
-            } else {
-                let mut new_compo_log_proba: Vec<rug::Float> = Vec::new();
-                for log_prob1 in &compo_log_proba {
-                    for log_prob2 in &log_probas {
-                        new_compo_log_proba.push(log_prob1.clone() + log_prob2.clone());
-                    }
-                }
-                compo_log_proba = new_compo_log_proba;
-            }
-        }
-        let mut compo_proba_log_ratio = ProbabilitiesLogRatios::new_from_logproba(compo_log_proba);
-        compo_proba_log_ratio.normalize();
-        Self::from_alpha_beta_vec(compo_proba_log_ratio.to_alpha_beta_vec())
-    }
 }
 
 pub fn bounded_complexity_composition_privacy_relation <MI: Metric>(
@@ -653,13 +573,11 @@ pub fn bounded_complexity_composition_privacy_relation <MI: Metric>(
 ) -> PrivacyRelation<MI, FSmoothedMaxDivergence<MI::Distance>>
     where MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Float + Debug {
 
-    let compo_proba_log_ratio = ProbabilitiesLogRatios::compose(
-        ProbabilitiesLogRatios::from_relation(relation1),
-        ProbabilitiesLogRatios::from_relation(relation2),
-    );
+    let proba_log_ratio1 = ProbabilitiesLogRatios::from_relation(relation1, npoints.clone(), delta_min.clone());
+    let proba_log_ratio2 = ProbabilitiesLogRatios::from_relation(relation2, npoints.clone(), delta_min.clone());
+    let compo_proba_log_ratio = proba_log_ratio1.compose(proba_log_ratio2);
 
-    let alphas_betas_compo = TradeoffFunc::from_alpha_beta_vec(compo_proba_log_ratio.to_alpha_beta_vec())
-    //let alphas_betas_compo = TradeoffFunc::compose_relations(relation1, relation2, npoints, delta_min);
+    let alphas_betas_compo = TradeoffFunc::from_alpha_beta_vec(compo_proba_log_ratio.to_alpha_beta_vec());
 
     PrivacyRelation::new_fallible(move |d_in: &MI::Distance, d_out: &Vec<EpsilonDelta<MI::Distance>>| {
         if d_in.is_sign_negative() {
@@ -694,27 +612,23 @@ pub fn make_bounded_complexity_composition<DI, DO, MI>(
     where DI: 'static + Domain,
           DO: 'static + Domain,
           MI: 'static + Metric,
-          MI::Distance: 'static + MetricDistance + Clone + CastInternalReal + Tolerance + Midpoint + Float + Debug { // TODO: remove CastInternalReal
-
-    if measurements.is_empty() {
-        return fallible!(MakeMeasurement, "Must have at least one measurement")
-    }
+          MI::Distance: 'static + MetricDistance + Clone + CastInternalReal + Tolerance + Midpoint + Float + Debug {
 
     let input_domain = measurement1.input_domain.clone();
     let output_domain = measurement1.output_domain.clone();
     let input_metric = measurement1.input_metric.clone();
     let output_measure = measurement2.output_measure.clone();
 
-    if !measurement2.input_domain {
+    if measurement2.input_domain != input_domain {
         return fallible!(DomainMismatch, "Input domains must be the same");
     }
-    if !measurement2.output_domain {
+    if measurement2.output_domain != output_domain {
         return fallible!(DomainMismatch, "Output domains must be the same");
     }
-    if !measurement2.input_metric {
+    if measurement2.input_metric != input_metric {
         return fallible!(MetricMismatch, "Input metrics must be the same");
     }
-    if !measurement2.output_measure {
+    if measurement2.output_measure != output_measure {
         return fallible!(MetricMismatch, "Output measures must be the same");
     }
 
@@ -728,11 +642,73 @@ pub fn make_bounded_complexity_composition<DI, DO, MI>(
         input_metric,
         output_measure.clone(),
         bounded_complexity_composition_privacy_relation(
-            &measurement1.privacy_relation.clone(),
-            &measurement2.privacy_relation.clone(),
+            measurement1.privacy_relation.clone(),
+            measurement2.privacy_relation.clone(),
             npoints,
             delta_min
         ),
+    ))
+}
+
+pub fn make_bounded_complexity_composition_multi<DI, DO, MI>(
+    measurements: &Vec<&Measurement<DI, DO, MI, FSmoothedMaxDivergence<MI::Distance>>>,
+    npoints: u8,
+    delta_min: MI::Distance,
+) -> Fallible<Measurement<DI, VectorDomain<DO>, MI, FSmoothedMaxDivergence<MI::Distance>>>
+    where DI: 'static + Domain,
+          DO: 'static + Domain,
+          MI: 'static + Metric,
+          MI::Distance: 'static + MetricDistance + Clone + CastInternalReal + Tolerance + Midpoint + Float + Debug {
+
+    if measurements.is_empty() {
+        return fallible!(MakeMeasurement, "Must have at least one measurement")
+    }
+
+    let input_domain = measurements[0].input_domain.clone();
+    let output_domain = measurements[0].output_domain.clone();
+    let input_metric = measurements[0].input_metric.clone();
+    let output_measure = measurements[0].output_measure.clone();
+
+    if !measurements.iter().all(|v| input_domain == v.input_domain) {
+        return fallible!(DomainMismatch, "All input domains must be the same");
+    }
+    if !measurements.iter().all(|v| output_domain == v.output_domain) {
+        return fallible!(DomainMismatch, "All output domains must be the same");
+    }
+    if !measurements.iter().all(|v| input_metric == v.input_metric) {
+        return fallible!(MetricMismatch, "All input metrics must be the same");
+    }
+    if !measurements.iter().all(|v| output_measure == v.output_measure) {
+        return fallible!(MetricMismatch, "All output measures must be the same");
+    }
+
+    let mut functions = Vec::new();
+    let mut relations = Vec::new();
+    for measurement in measurements {
+        functions.push(measurement.function.clone());
+        relations.push(measurement.privacy_relation.clone());
+    }
+
+    let mut composed_privacy_relation = measurements[0].privacy_relation.clone();
+
+    let size = relations.iter().len();
+    for i in 1..size {
+        composed_privacy_relation = bounded_complexity_composition_privacy_relation(
+            composed_privacy_relation,
+            relations[i].clone(),
+            npoints,
+            delta_min
+        )
+    }
+
+    Ok(Measurement::new(
+        input_domain,
+        VectorDomain::new(output_domain),
+        Function::new_fallible(move |arg: &DI::Carrier|
+            functions.iter().map(|f| f.eval(arg)).collect()),
+        input_metric,
+        output_measure.clone(),
+        composed_privacy_relation,
     ))
 }
 
