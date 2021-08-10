@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 use rug::float::Round;
 use rug::ops::DivAssignRound;
-use num::{One, Zero};
+use num::{One, Zero, Float};
 use std::ops::Add;
 use std::cmp::Ordering;
 
@@ -61,7 +61,7 @@ use core::fmt::Debug;
 
 impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
      where MI: Metric,
-           Q: Clone + One + Zero + Tolerance + Midpoint + PartialOrd + CastInternalReal,
+           Q: Clone + Float + One + Zero + Tolerance + Midpoint + PartialOrd + CastInternalReal,
            MI::Distance: Clone + CastInternalReal + One + Zero + Tolerance + Midpoint + PartialOrd + Copy {
 
     pub fn find_epsilon (&self, d_in: &MI::Distance, delta: Q) -> Fallible<Q> {
@@ -77,7 +77,12 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
                 epsilon: Q::from_internal(eps.clone()),
                 delta: Q::from_internal(delta.clone()),
             }];
-            if !self.eval(&d_in, &dout)? {
+            let eval = match self.eval(&d_in, &dout) {
+                Ok(result) => result,
+                Err(_) => {return Ok(Q::one() / Q::zero())}
+            };
+
+            if !eval {
                 eps = eps.clone() * two.clone();
             }
 
@@ -103,7 +108,7 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
             delta: Q::from_internal(delta.clone()),
         }];
         if !self.eval(&d_in, &dout)? {
-            return Ok(Q::from_internal(rug::Float::with_val( eps.prec(), 1./ 0.)))
+            return Ok(Q::one() / Q::zero())
         }
         Ok(Q::from_internal(eps))
     }
@@ -120,7 +125,11 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
                 epsilon: Q::from_internal(epsilon.clone()),
                 delta: Q::from_internal(delta.clone()),
             }];
-            if !self.eval(&d_in, &dout)? {
+            let eval = match self.eval(&d_in, &dout) {
+                Ok(result) => result,
+                Err(_) => {return Ok(Q::one())}
+            };
+            if !eval {
                 delta = delta.clone() * two.clone();
             }
 
@@ -151,50 +160,30 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
         Ok(Q::from_internal(delta))
     }
 
-    pub fn find_epsilons_deltas (
-        &self,
-        npoints: u8,
-        delta_min: Q,
-        d_in: MI::Distance,
-    ) -> Vec<EpsilonDelta<Q>> {
-        let delta_max = Q::from_internal(rug::Float::with_val(4, 1.0));
-        let max_epsilon_exp = self.find_epsilon(&d_in, delta_min).unwrap().into_internal().exp();
-        let min_epsilon_exp = self.find_epsilon(&d_in, delta_max).unwrap().into_internal().exp();
-
-        let step = (max_epsilon_exp.clone() - min_epsilon_exp.clone()) / rug::Float::with_val(4, npoints - 1);
-        (0..npoints)
-            .map(|i| Q::from_internal(
-                (min_epsilon_exp.clone() + step.clone() * rug::Float::with_val(4, i)).ln()
-            ))
-            .map(|eps| EpsilonDelta{
-                epsilon: eps.clone(),
-                delta: self.find_delta(&d_in, eps.clone()).unwrap()
-            })
-            .rev()
-            .collect()
-    }
-
     pub fn find_epsilon_delta_family (
         &self,
         npoints: u8,
         delta_min: Q,
         d_in: MI::Distance
     ) -> Vec<EpsilonDelta<Q>> {
-        let delta_max = Q::from_internal(rug::Float::with_val(4, 1.0));
-        let min_epsilon_exp = self.find_epsilon(&d_in, delta_min).unwrap().into_internal().exp();
-        let max_epsilon_exp = self.find_epsilon(&d_in, delta_max).unwrap().into_internal().exp();
+        let delta_max = Q::one();
+        let max_epsilon = self.find_epsilon(&d_in, delta_min).unwrap().into_internal();
+        let mut min_epsilon = self.find_epsilon(&d_in, delta_max).unwrap().into_internal();
+        if min_epsilon < Q::zero().into_internal() {
+            min_epsilon = Q::zero().into_internal();
+        }
 
-        if min_epsilon_exp == rug::Float::with_val(min_epsilon_exp.prec(), 1. / 0.) {
+        if min_epsilon == rug::Float::with_val(min_epsilon.prec(), 1. / 0.) {
             return vec![EpsilonDelta{
-                epsilon: Q::from_internal(rug::Float::with_val(min_epsilon_exp.prec(), 1. / 0.)),
+                epsilon: Q::from_internal(rug::Float::with_val(min_epsilon.prec(), 1. / 0.)),
                 delta: Q::one(),
             }]
         }
 
-        let step = (max_epsilon_exp.clone() - min_epsilon_exp.clone()) / rug::Float::with_val(4, npoints - 1);
+        let step = (max_epsilon.clone() - min_epsilon.clone()) / rug::Float::with_val(53, npoints - 1);
         (0..npoints)
             .map(|i| Q::from_internal(
-                (min_epsilon_exp.clone() + step.clone() * rug::Float::with_val(4, i)).ln()
+                (min_epsilon.clone() + step.clone() * rug::Float::with_val(4, i))
             ))
             .map(|eps| EpsilonDelta{
                 epsilon: eps.clone(),

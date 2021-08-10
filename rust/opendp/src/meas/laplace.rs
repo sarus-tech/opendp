@@ -51,7 +51,7 @@ impl<MI: Metric> LaplacePrivacyRelation<MI> for MaxDivergence<MI::Distance>
     }
 }
 
-fn compute_dual_epsilon_delta_laplace<Q: 'static + Float + Clone + CastInternalReal > (scale: Q, epsilon: Q) -> EpsilonDelta<Q> { // implement trait
+pub fn compute_dual_epsilon_delta_laplace<Q: 'static + Float + Clone + CastInternalReal > (scale: Q, epsilon: Q) -> EpsilonDelta<Q> { // implement trait
     use rug::float::Round;
     let mut scale_float: rug::Float = scale.clone().into_internal();
     scale_float.recip_round(Round::Up); // scale_float -> 1 / scale_float
