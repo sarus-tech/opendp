@@ -175,7 +175,7 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
 
         if min_epsilon == rug::Float::with_val(min_epsilon.prec(), 1. / 0.) {
             return vec![EpsilonDelta{
-                epsilon: Q::from_internal(rug::Float::with_val(min_epsilon.prec(), 1. / 0.)),
+                epsilon: Q::one() / Q::zero(),
                 delta: Q::one(),
             }]
         }
