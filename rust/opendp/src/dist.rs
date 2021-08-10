@@ -155,25 +155,23 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
         delta_min: Q,
         d_in: MI::Distance
     ) -> Vec<EpsilonDelta<Q>> {
-        let delta_max = Q::one();
-        let max_epsilon = self.find_epsilon(&d_in, delta_min).unwrap().into_internal();
-        let mut min_epsilon = self.find_epsilon(&d_in, delta_max).unwrap().into_internal();
-        if min_epsilon < Q::zero().into_internal() {
-            min_epsilon = Q::zero().into_internal();
+        let max_epsilon = self.find_epsilon(&d_in, delta_min).unwrap();
+        let mut min_epsilon = self.find_epsilon(&d_in, Q::one()).unwrap();
+        if min_epsilon < Q::zero() {
+            min_epsilon = Q::zero();
         }
 
-        if max_epsilon == (Q::one() / Q::zero()).into_internal() {
+        if max_epsilon == (Q::one() / Q::zero()) {
             return vec![EpsilonDelta{
                 epsilon: Q::one() / Q::zero(),
                 delta: Q::one(),
             }]
         }
 
-        let step = (max_epsilon.clone() - min_epsilon.clone()) / rug::Float::with_val(53, npoints - 1);
+        let step = (max_epsilon.clone() - min_epsilon.clone())
+            / Q::from_internal(rug::Float::with_val(53, npoints - 1));
         (0..npoints)
-            .map(|i| Q::from_internal(
-                min_epsilon.clone() + step.clone() * rug::Float::with_val(53, i)
-            ))
+            .map(|i| min_epsilon.clone() + step.clone() * Q::from_internal(rug::Float::with_val(53, i)))
             .map(|eps| EpsilonDelta{
                 epsilon: eps.clone(),
                 delta: self.find_delta(&d_in, eps.clone()).unwrap()

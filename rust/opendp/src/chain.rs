@@ -489,7 +489,6 @@ impl TradeoffFunc {
         where Q:  Zero + One + Clone + Sub + Float + CastInternalReal + Debug{
         let one: rug::Float = Q::one().into_internal();
         let zero: rug::Float = Q::zero().into_internal();
-        println!("epsilons_deltas = {:?}", epsilons_deltas);
         let mut alpha_beta_vec = vec![
             AlphaBeta {alpha: zero.clone(), beta: one.clone() - epsilons_deltas[0].delta.into_internal()}
             ];
@@ -515,7 +514,6 @@ impl TradeoffFunc {
             .rev()
             .collect();
         alpha_beta_vec.append(&mut rev_alpha_beta_vec);
-        println!("{:?}", alpha_beta_vec);
         alpha_beta_vec.sort_by(|a, b| b.alpha.partial_cmp(&a.alpha).unwrap());
         alpha_beta_vec.reverse();
         Self::from_alpha_beta_vec(alpha_beta_vec)
