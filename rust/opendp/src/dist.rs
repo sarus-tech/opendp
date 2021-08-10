@@ -1,8 +1,6 @@
 //! Various implementations of Metric/Measure (and associated Distance).
 
 use std::marker::PhantomData;
-use rug::float::Round;
-use rug::ops::DivAssignRound;
 use num::{One, Zero, Float};
 use std::ops::Add;
 use std::cmp::Ordering;
@@ -164,7 +162,7 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
             min_epsilon = Q::zero().into_internal();
         }
 
-        if min_epsilon == rug::Float::with_val(min_epsilon.prec(), 1. / 0.) {
+        if max_epsilon == (Q::one() / Q::zero()).into_internal() {
             return vec![EpsilonDelta{
                 epsilon: Q::one() / Q::zero(),
                 delta: Q::one(),
@@ -174,7 +172,7 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
         let step = (max_epsilon.clone() - min_epsilon.clone()) / rug::Float::with_val(53, npoints - 1);
         (0..npoints)
             .map(|i| Q::from_internal(
-                (min_epsilon.clone() + step.clone() * rug::Float::with_val(4, i))
+                min_epsilon.clone() + step.clone() * rug::Float::with_val(53, i)
             ))
             .map(|eps| EpsilonDelta{
                 epsilon: eps.clone(),
