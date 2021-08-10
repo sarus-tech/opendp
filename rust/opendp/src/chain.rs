@@ -420,7 +420,6 @@ impl ProbabilitiesLogRatios {
         }] {
             return Self::new_empty()
         }
-
         let alphas_betas_vec =  TradeoffFunc::from_epsilon_delta_vec(&epsilon_deltas).to_alpha_beta_vec();
         let mut probas_log_ratios = ProbabilitiesLogRatios::from_alpha_beta_vec(&alphas_betas_vec);
         probas_log_ratios.normalize();

@@ -100,8 +100,8 @@ impl<MI: Metric> GaussianPrivacyRelation<MI> for FSmoothedMaxDivergence<MI::Dist
                 if epsilon.is_sign_negative() {
                     return fallible!(InvalidDistance, "gaussian mechanism: epsilon must be positive or 0")
                 }
-                if delta.is_sign_negative() {
-                    return fallible!(InvalidDistance, "gaussian mechanism: delta must be positive or 0")
+                if delta.is_sign_negative() || delta.is_zero() {
+                    return fallible!(InvalidDistance, "gaussian mechanism: delta must be positive")
                 }
 
                 let delta_dual = compute_dual_epsilon_delta_gaussian(scale, *epsilon).delta;
