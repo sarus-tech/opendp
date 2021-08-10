@@ -191,6 +191,18 @@ impl<MI, Q> PrivacyRelation<MI, FSmoothedMaxDivergence<Q>>
             })
             .rev()
             .collect()
+
+        // let step = (max_epsilon.clone().exp() - min_epsilon.clone().exp()) / rug::Float::with_val(53, npoints - 1);
+        // (0..npoints)
+        //     .map(|i| Q::from_internal(
+        //         (min_epsilon.clone().exp() + step.clone() * rug::Float::with_val(4, i)).ln()
+        //     ))
+        //     .map(|eps| EpsilonDelta{
+        //         epsilon: eps.clone(),
+        //         delta: self.find_delta(&d_in, eps.clone()).unwrap()
+        //     })
+        //     .rev()
+        //     .collect()
     }
 }
 
